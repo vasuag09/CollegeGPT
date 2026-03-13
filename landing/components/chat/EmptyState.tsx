@@ -51,10 +51,13 @@ export default function EmptyState({ onSelectPrompt }: EmptyStateProps) {
           </svg>
         </div>
         <h1 className="text-4xl font-bold tracking-tight text-foreground mb-3">
-          CollegeGPT
+          NM-GPT
         </h1>
-        <p className="text-muted text-lg max-w-md mx-auto">
+        <p className="text-muted text-lg max-w-md mx-auto mb-2">
           Your personal assistant for the Student Resource Book. Ask anything about university policies.
+        </p>
+        <p className="text-muted-foreground/60 text-sm font-medium">
+          Created by Vasu Agrawal & Vanisha Sharma
         </p>
       </motion.div>
 

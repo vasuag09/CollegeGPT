@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 """
-CollegeGPT – FastAPI Backend
+NM-GPT – FastAPI Backend
 
-Provides the REST API for the CollegeGPT RAG system.
+Provides the REST API for the NM-GPT RAG system.
 
 Endpoints:
   POST /query         – Answer a student question using the RAG pipeline
@@ -24,7 +24,7 @@ from pydantic import BaseModel, Field
 from backend.config import DEFAULT_TOP_K
 
 app = FastAPI(
-    title="CollegeGPT API",
+    title="NM-GPT API",
     description="Campus Policy AI Assistant – answers student questions using the Student Resource Book",
     version="1.0.0",
 )
@@ -83,7 +83,7 @@ class QueryResponse(BaseModel):
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "CollegeGPT"}
+    return {"status": "healthy", "service": "NM-GPT"}
 
 
 @app.post("/query", response_model=QueryResponse)

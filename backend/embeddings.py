@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """
-CollegeGPT – Embedding Wrapper
+NM-GPT – Embedding Wrapper
 
 Modular embedding interface using Google Generative AI embeddings.
 The model can be swapped by changing EMBEDDING_MODEL in config.py.

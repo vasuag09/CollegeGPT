@@ -1,8 +1,8 @@
-# Claude Development Guide — CollegeGPT
+# Claude Development Guide — NM-GPT
 
 ## Project Overview
 
-CollegeGPT is a prototype AI assistant that answers student questions using a Student Resource Book (SRB) containing approximately 100 pages of official policies.
+NM-GPT is a prototype AI assistant that answers student questions using a Student Resource Book (SRB) containing approximately 100 pages of official policies.
 
 The system uses a Retrieval Augmented Generation (RAG) architecture powered by the Gemini API.
 
@@ -14,7 +14,7 @@ Future versions may evolve into a campus-wide AI platform.
 
 # Your Role
 
-You are assisting as a senior AI engineer helping build and improve CollegeGPT.
+You are assisting as a senior AI engineer helping build and improve NM-GPT.
 
 Focus on:
 
@@ -30,7 +30,7 @@ Avoid unnecessary complexity.
 
 # Core Architecture
 
-CollegeGPT consists of four main layers.
+NM-GPT consists of four main layers.
 
 ## 1 Document Ingestion
 

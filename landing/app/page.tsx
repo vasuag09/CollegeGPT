@@ -1,25 +1,12 @@
-import Navbar from "@/components/Navbar";
-import Hero from "@/components/Hero";
-import ProblemSection from "@/components/ProblemSection";
-import SolutionSection from "@/components/SolutionSection";
-import HowItWorks from "@/components/HowItWorks";
-import FutureVision from "@/components/FutureVision";
-import DemoChat from "@/components/DemoChat";
-import Footer from "@/components/Footer";
+import type { Metadata } from "next";
+import ChatLayout from "@/components/chat/ChatLayout";
 
-export default function Home() {
-  return (
-    <>
-      <Navbar />
-      <main>
-        <Hero />
-        <ProblemSection />
-        <SolutionSection />
-        <HowItWorks />
-        <FutureVision />
-        <DemoChat />
-      </main>
-      <Footer />
-    </>
-  );
+export const metadata: Metadata = {
+  title: "NM-GPT | Chat",
+  description:
+    "Ask NM-GPT about NMIMS policies, rules, and academic information from the Student Resource Book.",
+};
+
+export default function HomePage() {
+  return <ChatLayout />;
 }

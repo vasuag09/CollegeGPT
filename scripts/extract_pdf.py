@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 """
-CollegeGPT – PDF Text Extraction
+NM-GPT – PDF Text Extraction
 
 Extracts text from the SRB PDF page-by-page using PyMuPDF,
 preserving page numbers in metadata.

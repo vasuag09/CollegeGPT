@@ -203,7 +203,7 @@ export default function ChatContainer() {
                 ? {
                     ...msg,
                     content: isConnectionError
-                      ? "Unable to connect to the CollegeGPT server. Make sure the backend is running on localhost:8000."
+                      ? "Unable to connect to the NM-GPT server. Make sure the backend is running on localhost:8000."
                       : errorMessage,
                     isError: true,
                     isStreaming: false,
@@ -218,7 +218,7 @@ export default function ChatContainer() {
               id: aiMsgId,
               role: "assistant" as const,
               content: isConnectionError
-                ? "Unable to connect to the CollegeGPT server. Make sure the backend is running on localhost:8000."
+                ? "Unable to connect to the NM-GPT server. Make sure the backend is running on localhost:8000."
                 : errorMessage,
               isError: true,
             },

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 """
-CollegeGPT – Document Chunking
+NM-GPT – Document Chunking
 
 Reads the extracted pages (data/pages.json) and splits them into
 semantic chunks with metadata, outputting data/chunks.jsonl.

@@ -34,7 +34,7 @@ export default function Sidebar({ onNewChat, isOpen = true, onToggle }: SidebarP
             className="rounded-lg shadow-sm"
           />
           <span className="text-lg font-bold tracking-tight text-foreground">
-            CollegeGPT
+            NM-GPT
           </span>
         </div>
 
@@ -90,6 +90,11 @@ export default function Sidebar({ onNewChat, isOpen = true, onToggle }: SidebarP
               Prototype v2.0
             </span>
             <span className="text-xs text-muted font-medium">NMIMS SRB</span>
+          </div>
+          <div className="px-2 pb-2 mt-1">
+            <p className="text-[10px] text-muted-foreground/60 font-medium">
+              Created by Vasu Agrawal & Vanisha Sharma
+            </p>
           </div>
         </div>
       </div>

@@ -83,7 +83,7 @@ export default function ChatInput({
       </div>
       
       <p className="text-[11px] text-center text-muted mt-3 font-medium tracking-wide">
-        CollegeGPT is powered by the Student Resource Book. Responses may be summarized.
+        NM-GPT is powered by the Student Resource Book. Responses may be summarized.
       </p>
     </div>
   );

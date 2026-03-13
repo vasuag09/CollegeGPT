@@ -1,6 +1,6 @@
-# 🎓 CollegeGPT — Campus Policy AI Assistant
+# 🎓 NM-GPT — Campus Policy AI Assistant
 
-CollegeGPT is a **Retrieval-Augmented Generation (RAG)** system that lets students ask natural language questions about the Student Resource Book (SRB) and receive answers with page citations.
+NM-GPT is a **Retrieval-Augmented Generation (RAG)** system that lets students ask natural language questions about the Student Resource Book (SRB) and receive answers with page citations.
 
 Built with **Google Gemini**, **FAISS**, **FastAPI**, and **Streamlit**.
 
@@ -27,7 +27,7 @@ Built with **Google Gemini**, **FAISS**, **FastAPI**, and **Streamlit**.
 ### 1. Install Dependencies
 
 ```bash
-cd CollegeGPT
+cd NM-GPT
 pip install -r requirements.txt
 ```
 
@@ -72,7 +72,7 @@ Open the Streamlit URL (usually [http://localhost:8501](http://localhost:8501)) 
 ## 📂 Project Structure
 
 ```
-CollegeGPT/
+NM-GPT/
 ├── backend/
 │   ├── app.py              # FastAPI backend
 │   ├── config.py           # Centralized configuration
@@ -131,7 +131,7 @@ CollegeGPT/
 
 ### `GET /health`
 
-Returns `{"status": "healthy", "service": "CollegeGPT"}`
+Returns `{"status": "healthy", "service": "NM-GPT"}`
 
 ---
 

@@ -1,8 +1,8 @@
-# CollegeGPT Architecture
+# NM-GPT Architecture
 
 ## Overview
 
-CollegeGPT is a Retrieval-Augmented Generation (RAG) system that allows students to ask natural language questions about the Student Resource Book (SRB) and receive answers with page citations.
+NM-GPT is a Retrieval-Augmented Generation (RAG) system that allows students to ask natural language questions about the Student Resource Book (SRB) and receive answers with page citations.
 
 ## System Architecture
 

@@ -1,1 +1,1 @@
-# CollegeGPT Backend Package
+# NM-GPT Backend Package

@@ -1,5 +1,5 @@
 """
-CollegeGPT – Centralized Configuration
+NM-GPT – Centralized Configuration
 
 All paths, model settings, and tuneable parameters live here.
 Uses python-dotenv to load secrets from a .env file.

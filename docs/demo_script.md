@@ -1,4 +1,4 @@
-# CollegeGPT Demo Script
+# NM-GPT Demo Script
 
 ## 10 Example Questions
 
@@ -25,7 +25,7 @@
 ### Demo Steps (~2 minutes)
 
 **[0:00 – 0:15] Introduction**
-> "This is CollegeGPT — an AI assistant that answers student questions using the official Student Resource Book."
+> "This is NM-GPT — an AI assistant that answers student questions using the official Student Resource Book."
 
 **[0:15 – 0:45] First Question — Simple Lookup**
 - Click "What is the minimum attendance requirement?" from the sidebar

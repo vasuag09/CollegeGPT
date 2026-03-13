@@ -1,5 +1,5 @@
 """
-CollegeGPT – LLM Client
+NM-GPT – LLM Client
 
 Wraps the Google Generative AI chat model for answer generation.
 Uses LangChain's ChatGoogleGenerativeAI for consistency with the

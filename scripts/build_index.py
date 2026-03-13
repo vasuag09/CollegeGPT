@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 """
-CollegeGPT – Build FAISS Index
+NM-GPT – Build FAISS Index
 
 Reads chunks from data/chunks.jsonl, generates embeddings via Gemini,
 and builds a FAISS vector index.

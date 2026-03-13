@@ -1,4 +1,4 @@
-# CollegeGPT — Complete Project Explanation
+# NM-GPT — Complete Project Explanation
 
 ## Table of Contents
 
@@ -27,7 +27,7 @@
 
 ## 1. Project Overview
 
-**CollegeGPT** is an AI-powered campus policy assistant that uses **Retrieval-Augmented Generation (RAG)** to answer student questions about the Student Resource Book (SRB). Instead of training a model on college data, we use a smarter approach: we store the SRB content in a searchable vector database and feed only the relevant sections to Google's Gemini LLM at query time. This ensures accurate, cited, and up-to-date answers.
+**NM-GPT** is an AI-powered campus policy assistant that uses **Retrieval-Augmented Generation (RAG)** to answer student questions about the Student Resource Book (SRB). Instead of training a model on college data, we use a smarter approach: we store the SRB content in a searchable vector database and feed only the relevant sections to Google's Gemini LLM at query time. This ensures accurate, cited, and up-to-date answers.
 
 The system is designed as a **working prototype** that can be demoed locally. The architecture is modular so it can later expand into a full campus-wide AI platform supporting multiple documents, departments, and services.
 
@@ -41,7 +41,7 @@ Students frequently need to look up college policies — attendance rules, exam 
 - Visit the administration office during working hours
 - Ask seniors (who may have outdated information)
 
-**CollegeGPT solves this** by providing an instant, conversational interface where students can ask natural language questions and get accurate, cited answers 24/7.
+**NM-GPT solves this** by providing an instant, conversational interface where students can ask natural language questions and get accurate, cited answers 24/7.
 
 ---
 
@@ -105,7 +105,7 @@ SRB PDF → Extract Text → Chunk Text → Generate Embeddings → Build FAISS 
 ## 5. Project Structure
 
 ```
-CollegeGPT/
+NM-GPT/
 ├── backend/                      # Core application logic
 │   ├── __init__.py               # Package marker
 │   ├── config.py                 # Centralized configuration
@@ -153,7 +153,7 @@ CollegeGPT/
 
 **Retrieval-Augmented Generation (RAG)** is a technique that enhances LLM responses by providing relevant context from a knowledge base at query time. Instead of fine-tuning a model (expensive, requires retraining when data changes), RAG dynamically retrieves the most relevant information for each question.
 
-### How RAG Works in CollegeGPT
+### How RAG Works in NM-GPT
 
 ```
 Student: "What is the minimum attendance requirement?"
@@ -215,7 +215,7 @@ This module centralizes all configurable parameters so we never hardcode paths, 
 
 ```python
 """
-CollegeGPT – Centralized Configuration
+NM-GPT – Centralized Configuration
 
 All paths, model settings, and tuneable parameters live here.
 Uses python-dotenv to load secrets from a .env file.
@@ -309,7 +309,7 @@ Reads the SRB PDF and extracts raw text from each page, preserving page numbers.
 from __future__ import annotations
 
 """
-CollegeGPT – PDF Text Extraction
+NM-GPT – PDF Text Extraction
 
 Extracts text from the SRB PDF page-by-page using PyMuPDF,
 preserving page numbers in metadata.
@@ -426,7 +426,7 @@ Splits the extracted page texts into overlapping chunks with metadata.
 from __future__ import annotations
 
 """
-CollegeGPT – Document Chunking
+NM-GPT – Document Chunking
 
 Reads the extracted pages (data/pages.json) and splits them into
 semantic chunks with metadata, outputting data/chunks.jsonl.
@@ -650,7 +650,7 @@ A modular wrapper around Google's Gemini embedding model. This abstraction means
 from __future__ import annotations
 
 """
-CollegeGPT – Embedding Wrapper
+NM-GPT – Embedding Wrapper
 
 Modular embedding interface using Google Generative AI embeddings.
 The model can be swapped by changing EMBEDDING_MODEL in config.py.
@@ -740,7 +740,7 @@ This script reads all chunks, generates embeddings via the Gemini API, and build
 from __future__ import annotations
 
 """
-CollegeGPT – Build FAISS Index
+NM-GPT – Build FAISS Index
 
 Handles free-tier rate limits by:
   - Using small batch sizes (20 chunks)
@@ -984,7 +984,7 @@ A clean wrapper around the Gemini LLM for answer generation.
 
 ```python
 """
-CollegeGPT – LLM Client
+NM-GPT – LLM Client
 
 Wraps the Google Generative AI chat model for answer generation.
 Uses LangChain's ChatGoogleGenerativeAI for consistency with the
@@ -1039,7 +1039,7 @@ sources before generating an answer.
 
 ```python
 # In the actual pipeline, prompts are much longer:
-prompt = """You are CollegeGPT...
+prompt = """You are NM-GPT...
 
 --- CONTEXT START ---
 [Page 12]
@@ -1074,7 +1074,7 @@ Two prompt templates control how the LLM behaves:
 This defines the LLM's identity and rules:
 
 ```
-You are CollegeGPT, an AI assistant for students at the college. Your purpose
+You are NM-GPT, an AI assistant for students at the college. Your purpose
 is to answer questions about college policies, rules, and procedures using
 ONLY the Student Resource Book (SRB).
 
@@ -1154,7 +1154,7 @@ full_prompt = system_prompt + "\n\n" + retrieval_prompt
 
 **The final prompt sent to Gemini looks like:**
 ```
-You are CollegeGPT, an AI assistant for students at the college...
+You are NM-GPT, an AI assistant for students at the college...
 
 RULES:
 1. ONLY use the provided context to answer questions...
@@ -1188,13 +1188,13 @@ ANSWER:
 
 **File: `backend/rag_pipeline.py`**
 
-This is the **core brain** of CollegeGPT. It orchestrates the entire query flow.
+This is the **core brain** of NM-GPT. It orchestrates the entire query flow.
 
 ```python
 from __future__ import annotations
 
 """
-CollegeGPT – RAG Pipeline
+NM-GPT – RAG Pipeline
 
 End-to-end retrieval-augmented generation:
   1. Embed user query
@@ -1219,7 +1219,7 @@ from backend.llm_client import generate
 
 
 class RAGPipeline:
-    """Retrieval-Augmented Generation pipeline for CollegeGPT."""
+    """Retrieval-Augmented Generation pipeline for NM-GPT."""
 
     def __init__(self):
         """Load FAISS index, metadata, and prompt templates."""
@@ -1472,7 +1472,7 @@ The REST API server that the Streamlit frontend communicates with.
 from __future__ import annotations
 
 """
-CollegeGPT – FastAPI Backend
+NM-GPT – FastAPI Backend
 
 Endpoints:
   POST /query  – Answer a student question using the RAG pipeline
@@ -1486,7 +1486,7 @@ from pydantic import BaseModel, Field
 from backend.config import DEFAULT_TOP_K
 
 app = FastAPI(
-    title="CollegeGPT API",
+    title="NM-GPT API",
     description="Campus Policy AI Assistant",
     version="1.0.0",
 )
@@ -1534,7 +1534,7 @@ class QueryResponse(BaseModel):
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "CollegeGPT"}
+    return {"status": "healthy", "service": "NM-GPT"}
 
 
 @app.post("/query", response_model=QueryResponse)
@@ -1578,7 +1578,7 @@ curl http://localhost:8000/health
 
 **Response:**
 ```json
-{"status": "healthy", "service": "CollegeGPT"}
+{"status": "healthy", "service": "NM-GPT"}
 ```
 
 **Querying the RAG system:**
@@ -1652,7 +1652,7 @@ The student-facing chat interface.
 from __future__ import annotations
 
 """
-CollegeGPT – Streamlit Chat Interface
+NM-GPT – Streamlit Chat Interface
 
 A chat-style web UI for students to ask questions about the
 Student Resource Book (SRB). Communicates with the FastAPI backend.
@@ -1662,7 +1662,7 @@ import streamlit as st
 import httpx
 
 st.set_page_config(
-    page_title="CollegeGPT – Campus Policy Assistant",
+    page_title="NM-GPT – Campus Policy Assistant",
     page_icon="🎓",
     layout="centered",
     initial_sidebar_state="expanded",
@@ -1694,7 +1694,7 @@ st.markdown("""
 
 # Sidebar with example questions and settings
 with st.sidebar:
-    st.title("CollegeGPT")
+    st.title("NM-GPT")
     st.caption("Your Campus Policy Assistant 🎓")
     st.divider()
 
@@ -1728,7 +1728,7 @@ if "pending_question" not in st.session_state:
     st.session_state.pending_question = None
 
 # Header
-st.markdown("<h1 style='text-align:center'>🎓 CollegeGPT</h1>",
+st.markdown("<h1 style='text-align:center'>🎓 NM-GPT</h1>",
             unsafe_allow_html=True)
 
 # Display chat history
@@ -1946,7 +1946,7 @@ Here's exactly what happens when a student types "What is the minimum attendance
 
 ### Step 1: Install Dependencies
 ```bash
-cd CollegeGPT
+cd NM-GPT
 pip install -r requirements.txt
 ```
 
@@ -2034,4 +2034,4 @@ The modular architecture supports these expansions without major refactoring:
 
 ---
 
-*This document provides a complete understanding of the CollegeGPT system. Every module, design decision, and data flow is explained so you can confidently present, modify, and extend this project.*
+*This document provides a complete understanding of the NM-GPT system. Every module, design decision, and data flow is explained so you can confidently present, modify, and extend this project.*

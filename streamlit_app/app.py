@@ -1,5 +1,5 @@
 """
-CollegeGPT – Streamlit Chat Interface
+NM-GPT – Streamlit Chat Interface
 
 A chat-style web UI for students to ask questions about the
 Student Resource Book (SRB). Communicates with the FastAPI backend.
@@ -12,7 +12,7 @@ import streamlit as st
 
 # MUST be the very first Streamlit command
 st.set_page_config(
-    page_title="CollegeGPT – Campus Policy Assistant",
+    page_title="NM-GPT – Campus Policy Assistant",
     page_icon="🎓",
     
     layout="centered",
@@ -64,7 +64,7 @@ st.markdown("""
 # ── Sidebar ──────────────────────────────────────────────────
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/graduation-cap.png", width=60)
-    st.title("CollegeGPT")
+    st.title("NM-GPT")
     st.caption("Your Campus Policy Assistant 🎓")
     st.divider()
 
@@ -112,7 +112,7 @@ if "pending_question" not in st.session_state:
 # ── Header ───────────────────────────────────────────────────
 st.markdown("""
 <div class="main-header">
-    <h1>🎓 CollegeGPT</h1>
+    <h1>🎓 NM-GPT</h1>
     <p style="color: #666; font-size: 1.1rem;">
         Ask me anything about college policies from the Student Resource Book
     </p>

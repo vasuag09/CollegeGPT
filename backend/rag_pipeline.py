@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """
-CollegeGPT – RAG Pipeline
+NM-GPT – RAG Pipeline
 
 End-to-end retrieval-augmented generation:
   1. Embed user query
@@ -32,7 +32,7 @@ from backend.llm_client import generate, generate_stream
 
 
 class RAGPipeline:
-    """Retrieval-Augmented Generation pipeline for CollegeGPT."""
+    """Retrieval-Augmented Generation pipeline for NM-GPT."""
 
     def __init__(self):
         """Load FAISS index, metadata, and prompt templates."""
