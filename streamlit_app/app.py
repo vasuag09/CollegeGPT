@@ -14,6 +14,7 @@ import streamlit as st
 st.set_page_config(
     page_title="CollegeGPT – Campus Policy Assistant",
     page_icon="🎓",
+    
     layout="centered",
     initial_sidebar_state="expanded",
 )

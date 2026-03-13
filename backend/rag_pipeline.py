@@ -14,6 +14,8 @@ End-to-end retrieval-augmented generation:
 
 import json
 import re
+from collections.abc import Generator
+
 import numpy as np
 import faiss
 
@@ -26,7 +28,7 @@ from backend.config import (
     DEFAULT_TOP_K,
 )
 from backend.embeddings import embed_query
-from backend.llm_client import generate
+from backend.llm_client import generate, generate_stream
 
 
 class RAGPipeline:
@@ -89,9 +91,7 @@ class RAGPipeline:
             page_info = f"Page {chunk['page_start']}"
             if chunk["page_start"] != chunk["page_end"]:
                 page_info = f"Pages {chunk['page_start']}–{chunk['page_end']}"
-            context_parts.append(
-                f"[{page_info}]\n{chunk['text']}"
-            )
+            context_parts.append(f"[{page_info}]\n{chunk['text']}")
         return "\n\n".join(context_parts)
 
     def _build_prompt(self, context: str, question: str) -> str:
@@ -105,7 +105,7 @@ class RAGPipeline:
     def _extract_page_citations(self, answer: str, chunks: list[dict]) -> list[int]:
         """Extract page numbers cited in the answer text."""
         # Find explicit [Page X] or [Pages X-Y] citations
-        page_pattern = r'\[Pages?\s*(\d+)(?:\s*[-–]\s*(\d+))?\]'
+        page_pattern = r"\[Pages?\s*(\d+)(?:\s*[-–]\s*(\d+))?\]"
         matches = re.findall(page_pattern, answer)
 
         pages = set()
@@ -194,3 +194,57 @@ class RAGPipeline:
             "pages": pages,
             "confidence": confidence,
         }
+
+    def query_stream(
+        self, question: str, top_k: int = DEFAULT_TOP_K
+    ) -> Generator[dict, None, None]:
+        """Stream the RAG pipeline response.
+
+        Yields SSE-friendly dicts:
+          {"type": "token", "content": "..."}       – streamed answer tokens
+          {"type": "citations", "citations": [...], "pages": [...], "confidence": float}
+          {"type": "done"}                          – signals completion
+          {"type": "error", "message": "..."}       – on failure
+        """
+        # Step 1-2: Retrieve relevant chunks (synchronous, fast)
+        chunks = self.retrieve(question, top_k=top_k)
+
+        if not chunks:
+            yield {
+                "type": "token",
+                "content": "I could not find relevant information in the Student Resource Book.",
+            }
+            yield {"type": "citations", "citations": [], "pages": [], "confidence": 0.0}
+            yield {"type": "done"}
+            return
+
+        # Step 3-4: Assemble context and build prompt
+        context = self._assemble_context(chunks)
+        prompt = self._build_prompt(context, question)
+
+        # Step 5: Stream the answer
+        full_answer = ""
+        for token in generate_stream(prompt):
+            full_answer += token
+            yield {"type": "token", "content": token}
+
+        # Step 6: After streaming completes, send citations
+        pages = self._extract_page_citations(full_answer, chunks)
+        confidence = self._compute_confidence(chunks)
+        citations = [
+            {
+                "text": c["text"][:300] + ("…" if len(c["text"]) > 300 else ""),
+                "page_start": c["page_start"],
+                "page_end": c["page_end"],
+                "chunk_id": c["chunk_id"],
+            }
+            for c in chunks
+        ]
+
+        yield {
+            "type": "citations",
+            "citations": citations,
+            "pages": pages,
+            "confidence": confidence,
+        }
+        yield {"type": "done"}

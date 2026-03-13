@@ -1,0 +1,324 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #0b0f19;
+  --color-foreground: #f9fafb;
+  --color-primary: #2563eb;
+  --color-primary-dark: #1d4ed8;
+  --color-accent: #3b82f6;
+  --color-muted: #9ca3af;
+  --color-surface: #111827;
+  --color-bubble-ai: #1f2937;
+  --color-border: #1f2937;
+  --font-sans: var(--font-inter);
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+}
+
+.hero-gradient {
+  background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(37, 99, 235, 0.15), transparent),
+              radial-gradient(ellipse 60% 40% at 80% 50%, rgba(59, 130, 246, 0.08), transparent),
+              radial-gradient(ellipse 50% 30% at 20% 80%, rgba(37, 99, 235, 0.06), transparent);
+}
+
+.glass-card {
+  background: rgba(17, 24, 39, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(31, 41, 55, 0.6);
+}
+
+.chat-bubble-user {
+  background: #2563eb;
+  color: white;
+}
+
+.chat-bubble-ai {
+  background: #1f2937;
+  border: 1px solid #1f2937;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.btn-primary {
+  background: #2563eb;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+  transform: translateY(-1px);
+}
+
+.step-connector {
+  background: #2563eb;
+  height: 2px;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.navbar-blur {
+  background: rgba(11, 15, 25, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ── Chat Interface ────────────────────────────────────────── */
+
+.chat-page {
+  background: var(--color-background);
+  min-height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+.chat-message-user {
+  background: var(--color-primary);
+  color: white;
+}
+
+.chat-message-ai {
+  background: var(--color-bubble-ai);
+  border: 1px solid var(--color-border);
+}
+
+.chat-input-area {
+  background: rgba(11, 15, 25, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.chat-textarea {
+  resize: none;
+  overflow-y: auto;
+  max-height: 200px;
+  scrollbar-width: thin;
+}
+
+.chat-textarea::-webkit-scrollbar {
+  width: 4px;
+}
+
+.chat-textarea::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 999px;
+}
+
+.citation-pill {
+  background: rgba(37, 99, 235, 0.1);
+  color: #93c5fd;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+@keyframes typing-dot {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-4px); }
+}
+
+.typing-dot {
+  animation: typing-dot 1.4s ease-in-out infinite;
+  background-color: #9ca3af;
+}
+
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+.confidence-bar {
+  background: #2563eb;
+}
+
+/* ── Markdown Prose Styles (AI Responses) ──────────────────── */
+
+.prose-chat {
+  line-height: 1.7;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.prose-chat p {
+  margin-bottom: 0.75em;
+}
+
+.prose-chat p:last-child {
+  margin-bottom: 0;
+}
+
+.prose-chat strong {
+  font-weight: 600;
+  color: #f9fafb;
+}
+
+.prose-chat em {
+  font-style: italic;
+}
+
+.prose-chat h1, .prose-chat h2, .prose-chat h3, .prose-chat h4 {
+  font-weight: 600;
+  color: #f9fafb;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
+
+.prose-chat h1 { font-size: 1.25em; }
+.prose-chat h2 { font-size: 1.15em; }
+.prose-chat h3 { font-size: 1.05em; }
+
+.prose-chat ul, .prose-chat ol {
+  margin: 0.75em 0;
+  padding-left: 1.5em;
+}
+
+.prose-chat ul {
+  list-style-type: disc;
+}
+
+.prose-chat ol {
+  list-style-type: decimal;
+}
+
+.prose-chat li {
+  margin-bottom: 0.35em;
+}
+
+.prose-chat li::marker {
+  color: #9ca3af;
+}
+
+.prose-chat code {
+  background: #111827;
+  color: #e5e7eb;
+  padding: 0.2em 0.4em;
+  border-radius: 6px;
+  border: 1px solid #374151;
+  font-size: 0.88em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  word-break: break-all;
+}
+
+.prose-chat pre {
+  background: #0d1117;
+  color: #c9d1d9;
+  border-radius: 10px;
+  padding: 1em;
+  margin: 0.8em 0;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.6;
+  border: 1px solid #30363d;
+}
+
+.prose-chat pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  font-size: inherit;
+}
+
+.prose-chat blockquote {
+  border-left: 4px solid #2563eb;
+  background: rgba(37, 99, 235, 0.05);
+  padding: 0.5em 0.75em;
+  border-radius: 0 8px 8px 0;
+  margin: 0.75em 0;
+  color: #d1d5db;
+  font-style: italic;
+}
+
+.prose-chat table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  font-size: 0.9em;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prose-chat th, .prose-chat td {
+  border: 1px solid #1f2937;
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+
+.prose-chat th {
+  background: #111827;
+  font-weight: 600;
+  color: #f9fafb;
+}
+
+.prose-chat tr:nth-child(even) {
+  background: #111827/50;
+}
+
+.prose-chat a {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prose-chat a:hover {
+  color: #93c5fd;
+}
+
+.prose-chat hr {
+  border: none;
+  border-top: 1px solid #1f2937;
+  margin: 1em 0;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* ── Mobile Optimizations ──────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .prose-chat pre {
+    padding: 0.75em;
+    font-size: 0.8em;
+  }
+
+  .prose-chat th, .prose-chat td {
+    padding: 0.4em 0.5em;
+    font-size: 0.85em;
+  }
+}
