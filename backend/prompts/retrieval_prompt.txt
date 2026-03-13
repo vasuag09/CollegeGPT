@@ -1,0 +1,15 @@
+Use the following context from the Student Resource Book (SRB) to answer the student's question. Each context section includes the page number(s) it was found on.
+
+--- CONTEXT START ---
+{context}
+--- CONTEXT END ---
+
+STUDENT'S QUESTION: {question}
+
+INSTRUCTIONS:
+- Answer ONLY based on the context above.
+- Include page citations in your answer using [Page X] format.
+- If the context does not contain enough information to answer, say: "I could not find this information in the Student Resource Book."
+- Be concise and clear.
+
+ANSWER:

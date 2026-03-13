@@ -1,0 +1,15 @@
+# Environment
+.env
+__pycache__/
+*.pyc
+
+# Data & Index (generated)
+data/chunks.jsonl
+index/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
