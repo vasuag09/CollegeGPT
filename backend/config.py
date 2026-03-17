@@ -9,6 +9,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+# ── gRPC Configuration ──────────────────────────────────────
+# Force gRPC to use the native DNS resolver to avoid c-ares DNS issues
+os.environ["GRPC_DNS_RESOLVER"] = "native"
+
 # ── Load .env ────────────────────────────────────────────────
 load_dotenv()
 

@@ -56,9 +56,9 @@ export default function EmptyState({ onSelectPrompt }: EmptyStateProps) {
         <p className="text-muted text-lg max-w-md mx-auto mb-2">
           Your personal assistant for the Student Resource Book. Ask anything about university policies.
         </p>
-        <p className="text-muted-foreground/60 text-sm font-medium">
+        {/* <p className="text-muted-foreground/60 text-sm font-medium">
           Created by Vasu Agrawal & Vanisha Sharma
-        </p>
+        </p> */}
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
