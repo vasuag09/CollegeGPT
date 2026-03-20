@@ -49,3 +49,18 @@ DEFAULT_TOP_K = 5
 BACKEND_HOST = "localhost"
 BACKEND_PORT = 8000
 BACKEND_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}"
+
+# ── CORS ─────────────────────────────────────────────────────
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001"
+    ).split(",")
+    if o.strip()
+]
+
+# ── Input Limits ─────────────────────────────────────────────
+MAX_QUESTION_LENGTH = 500
+
+# ── LLM Timeout ──────────────────────────────────────────────
+LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "60"))

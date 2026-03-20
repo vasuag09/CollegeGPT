@@ -27,11 +27,13 @@ export default function ChatInput({ value, onChange, onSend, disabled }: ChatInp
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!disabled && value.trim()) onSend();
+      if (!disabled && hasText && !isTooLong) onSend();
     }
   };
 
+  const MAX_LENGTH = 500;
   const hasText = value.trim().length > 0;
+  const isTooLong = value.length > MAX_LENGTH;
 
   return (
     <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 pb-5 pt-3">
@@ -58,7 +60,7 @@ export default function ChatInput({ value, onChange, onSend, disabled }: ChatInp
             whileHover={{ scale: hasText && !disabled ? 1.05 : 1 }}
             whileTap={{ scale: hasText && !disabled ? 0.92 : 1 }}
             onClick={onSend}
-            disabled={disabled || !hasText}
+            disabled={disabled || !hasText || isTooLong}
             className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200"
             style={{
               background: hasText && !disabled
@@ -86,13 +88,16 @@ export default function ChatInput({ value, onChange, onSend, disabled }: ChatInp
       </div>
 
       {/* Footer hint */}
-      <div className="flex items-center justify-center gap-3 mt-2.5">
+      <div className="flex items-center justify-between mt-2.5 px-1">
         <span className="text-[10px] text-muted/50 font-medium tracking-wide">
-          Answers sourced from official NMIMS documents
+          Answers sourced from official NMIMS documents · Shift+Enter for newline
         </span>
-        <span className="text-[10px] text-muted/35">·</span>
-        <span className="text-[10px] text-muted/35 font-medium">
-          Shift+Enter for newline
+        <span
+          className={`text-[10px] font-medium tabular-nums ${
+            isTooLong ? "text-red-400" : "text-muted/35"
+          }`}
+        >
+          {value.length}/{MAX_LENGTH}
         </span>
       </div>
     </div>

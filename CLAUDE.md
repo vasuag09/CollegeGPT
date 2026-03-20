@@ -164,7 +164,7 @@ Confidence = 1 - (avg_l2_distance / 2). Heuristic, not calibrated.
 - `landing/components/chat/EmptyState.tsx` — suggestions UI on first load
 - `landing/components/Sidebar.tsx` — conversation history (currently hardcoded placeholder data)
 
-**Known issue:** Backend URL is hardcoded as `http://localhost:8000` in `ChatContainer.tsx`. Must be changed to an env variable before any deployed environment.
+**Frontend config:** Backend URL is read from `NEXT_PUBLIC_API_URL` in `landing/.env.local`. Change this env var before deploying.
 
 ---
 
@@ -274,14 +274,11 @@ These are known and intentional omissions for the prototype. Do not add complexi
 
 **Critical before production:**
 - No authentication — anyone can query the API
-- No database — chat history lost on refresh; sidebar shows hardcoded fake conversations
-- Hardcoded `localhost:8000` URL in `ChatContainer.tsx`
+- No database — chat history lost on refresh; sidebar shows hardcoded placeholder conversations
 - No query logging or analytics
 
 **Quality:**
 - Zero test coverage
-- No structured logging — backend uses bare print()
-- No API rate limiting
 - Confidence score is a heuristic, not calibrated
 
 **AI quality:**
@@ -289,7 +286,18 @@ These are known and intentional omissions for the prototype. Do not add complexi
 - Pure vector search — no BM25 hybrid
 - No hallucination guard on cited pages
 - Streamlit UI has no SSE streaming (blocks on response)
-- `CitationBlock.tsx` does not yet display the source document name (only page number)
+
+**Already addressed (no longer gaps):**
+- Backend URL now read from `NEXT_PUBLIC_API_URL` env var
+- Structured logging added to all backend modules
+- Rate limiting on `/query` and `/query/stream` (10 req/min via slowapi)
+- Input validation: 1–500 char limit, enforced on both frontend and backend
+- `/health` now checks index files and API key, returns 503 if not ready
+- 60s timeout on LLM calls (configurable via `LLM_TIMEOUT_SECONDS`)
+- Frontend fetch timeout via AbortController (60s)
+- Citation source field populated from chunk metadata
+- Prompt injection fix: template uses `.replace()` not `.format()`
+- Citation fallback removed — pages list is empty if LLM doesn't cite
 
 Full prioritized roadmap: `docs/post_demo_improvements.md`
 

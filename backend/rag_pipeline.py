@@ -13,13 +13,12 @@ End-to-end retrieval-augmented generation:
 """
 
 import json
+import logging
 import re
 from collections.abc import Generator
 
 import numpy as np
 import faiss
-
-from pathlib import Path
 
 from backend.config import (
     FAISS_INDEX_PATH,
@@ -30,13 +29,15 @@ from backend.config import (
 from backend.embeddings import embed_query
 from backend.llm_client import generate, generate_stream
 
+logger = logging.getLogger("nmgpt.pipeline")
+
 
 class RAGPipeline:
     """Retrieval-Augmented Generation pipeline for NM-GPT."""
 
     def __init__(self):
         """Load FAISS index, metadata, and prompt templates."""
-        # Load FAISS index
+        logger.info("Loading FAISS index from %s", FAISS_INDEX_PATH)
         if not FAISS_INDEX_PATH.exists():
             raise FileNotFoundError(
                 f"FAISS index not found at {FAISS_INDEX_PATH}. "
@@ -44,7 +45,7 @@ class RAGPipeline:
             )
         self.index = faiss.read_index(str(FAISS_INDEX_PATH))
 
-        # Load chunk metadata
+        logger.info("Loading chunk metadata from %s", METADATA_PATH)
         if not METADATA_PATH.exists():
             raise FileNotFoundError(
                 f"Metadata not found at {METADATA_PATH}. "
@@ -52,6 +53,8 @@ class RAGPipeline:
             )
         with open(METADATA_PATH, "r", encoding="utf-8") as f:
             self.metadata = json.load(f)
+
+        logger.info("Loaded %d chunks into metadata", len(self.metadata))
 
         # Load prompt templates
         self.system_prompt = self._load_prompt("system_prompt.txt")
@@ -69,6 +72,7 @@ class RAGPipeline:
         Returns list of dicts with keys:
           text, page_start, page_end, source, chunk_id, distance
         """
+        logger.info("Retrieving top-%d chunks for query: %r", top_k, query[:60])
         query_embedding = embed_query(query)
         query_vector = np.array([query_embedding], dtype=np.float32)
 
@@ -82,6 +86,9 @@ class RAGPipeline:
             chunk_meta["distance"] = float(dist)
             results.append(chunk_meta)
 
+        logger.info("Retrieved %d chunks (avg distance=%.3f)",
+                    len(results),
+                    sum(c["distance"] for c in results) / len(results) if results else 0)
         return results
 
     def _assemble_context(self, chunks: list[dict]) -> str:
@@ -95,16 +102,20 @@ class RAGPipeline:
         return "\n\n".join(context_parts)
 
     def _build_prompt(self, context: str, question: str) -> str:
-        """Build the full prompt from system prompt + retrieval template."""
-        retrieval_prompt = self.retrieval_prompt_template.format(
-            context=context,
-            question=question,
+        """Build the full prompt from system prompt + retrieval template.
+
+        Uses string replacement (not .format()) to prevent prompt injection
+        from user-controlled context or question strings.
+        """
+        retrieval_prompt = (
+            self.retrieval_prompt_template
+            .replace("{context}", context)
+            .replace("{question}", question)
         )
         return f"{self.system_prompt}\n\n{retrieval_prompt}"
 
     def _extract_page_citations(self, answer: str, chunks: list[dict]) -> list[int]:
-        """Extract page numbers cited in the answer text."""
-        # Find explicit [Page X] or [Pages X-Y] citations
+        """Extract page numbers explicitly cited in the answer text."""
         page_pattern = r"\[Pages?\s*(\d+)(?:\s*[-–]\s*(\d+))?\]"
         matches = re.findall(page_pattern, answer)
 
@@ -115,12 +126,6 @@ class RAGPipeline:
             if match[1]:
                 end_page = int(match[1])
                 for p in range(start_page, end_page + 1):
-                    pages.add(p)
-
-        # If no explicit citations found, use pages from retrieved chunks
-        if not pages:
-            for chunk in chunks:
-                for p in range(chunk["page_start"], chunk["page_end"] + 1):
                     pages.add(p)
 
         return sorted(pages)
@@ -149,12 +154,11 @@ class RAGPipeline:
         Returns:
           {
             "answer": str,
-            "citations": [{"text": str, "page_start": int, "page_end": int}, ...],
+            "citations": [{"text": str, "page_start": int, "page_end": int, "source": str}, ...],
             "pages": [int, ...],
             "confidence": float
           }
         """
-        # Step 1-2: Retrieve relevant chunks
         chunks = self.retrieve(question, top_k=top_k)
 
         if not chunks:
@@ -165,18 +169,15 @@ class RAGPipeline:
                 "confidence": 0.0,
             }
 
-        # Step 3: Assemble context
         context = self._assemble_context(chunks)
-
-        # Step 4: Build prompt
         prompt = self._build_prompt(context, question)
 
-        # Step 5: Generate answer
+        logger.info("Generating answer...")
         answer = generate(prompt)
 
-        # Step 6: Extract citations and compute confidence
         pages = self._extract_page_citations(answer, chunks)
         confidence = self._compute_confidence(chunks)
+        logger.info("Answer generated: %d pages cited, confidence=%.2f", len(pages), confidence)
 
         citations = [
             {
@@ -184,6 +185,7 @@ class RAGPipeline:
                 "page_start": c["page_start"],
                 "page_end": c["page_end"],
                 "chunk_id": c["chunk_id"],
+                "source": c.get("source", ""),
             }
             for c in chunks
         ]
@@ -206,7 +208,6 @@ class RAGPipeline:
           {"type": "done"}                          – signals completion
           {"type": "error", "message": "..."}       – on failure
         """
-        # Step 1-2: Retrieve relevant chunks (synchronous, fast)
         chunks = self.retrieve(question, top_k=top_k)
 
         if not chunks:
@@ -218,25 +219,26 @@ class RAGPipeline:
             yield {"type": "done"}
             return
 
-        # Step 3-4: Assemble context and build prompt
         context = self._assemble_context(chunks)
         prompt = self._build_prompt(context, question)
 
-        # Step 5: Stream the answer
+        logger.info("Streaming answer...")
         full_answer = ""
         for token in generate_stream(prompt):
             full_answer += token
             yield {"type": "token", "content": token}
 
-        # Step 6: After streaming completes, send citations
         pages = self._extract_page_citations(full_answer, chunks)
         confidence = self._compute_confidence(chunks)
+        logger.info("Stream complete: %d pages cited, confidence=%.2f", len(pages), confidence)
+
         citations = [
             {
                 "text": c["text"][:300] + ("…" if len(c["text"]) > 300 else ""),
                 "page_start": c["page_start"],
                 "page_end": c["page_end"],
                 "chunk_id": c["chunk_id"],
+                "source": c.get("source", ""),
             }
             for c in chunks
         ]

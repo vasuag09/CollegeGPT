@@ -12,6 +12,7 @@ interface Citation {
   page_start: number;
   page_end: number;
   chunk_id: string;
+  source?: string;
 }
 
 interface Message {
@@ -27,8 +28,10 @@ interface Message {
 
 // ── Constants ───────────────────────────────────────────────
 
-const STREAM_URL = "http://localhost:8000/query/stream";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const STREAM_URL = `${API_BASE}/query/stream`;
 const TOP_K = 5;
+const REQUEST_TIMEOUT_MS = 60_000;
 
 // ── Component ───────────────────────────────────────────────
 
@@ -38,6 +41,7 @@ export default function ChatContainer() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Auto-scroll to bottom on new messages / streaming updates
   useEffect(() => {
@@ -68,11 +72,17 @@ export default function ChatContainer() {
       setInput("");
       setIsLoading(true);
 
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
       try {
         const response = await fetch(STREAM_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ question, top_k: TOP_K }),
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -183,16 +193,29 @@ export default function ChatContainer() {
             }
           }
         }
+
+        // Stream ended without explicit "done" — clear the streaming flag
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === aiMsgId && msg.isStreaming
+              ? { ...msg, isStreaming: false }
+              : msg
+          )
+        );
       } catch (err) {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : "Something went wrong. Please try again.";
+        const isAbort = err instanceof DOMException && err.name === "AbortError";
+        const errorMessage = isAbort
+          ? "Request timed out. The server took too long to respond."
+          : err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.";
 
         const isConnectionError =
-          errorMessage.includes("Failed to fetch") ||
-          errorMessage.includes("NetworkError") ||
-          errorMessage.includes("ERR_CONNECTION_REFUSED");
+          !isAbort && (
+            errorMessage.includes("Failed to fetch") ||
+            errorMessage.includes("NetworkError") ||
+            errorMessage.includes("ERR_CONNECTION_REFUSED")
+          );
 
         // If we already added an AI message for streaming, update it
         setMessages((prev) => {
@@ -203,7 +226,7 @@ export default function ChatContainer() {
                 ? {
                     ...msg,
                     content: isConnectionError
-                      ? "Unable to connect to the NM-GPT server. Make sure the backend is running on localhost:8000."
+                      ? "Unable to connect to the NM-GPT server. Make sure the backend is running."
                       : errorMessage,
                     isError: true,
                     isStreaming: false,
@@ -218,13 +241,15 @@ export default function ChatContainer() {
               id: aiMsgId,
               role: "assistant" as const,
               content: isConnectionError
-                ? "Unable to connect to the NM-GPT server. Make sure the backend is running on localhost:8000."
+                ? "Unable to connect to the NM-GPT server. Make sure the backend is running."
                 : errorMessage,
               isError: true,
             },
           ];
         });
       } finally {
+        clearTimeout(timeoutId);
+        abortControllerRef.current = null;
         setIsLoading(false);
       }
     },

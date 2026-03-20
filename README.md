@@ -192,7 +192,7 @@ Returns `{"status": "healthy", "service": "NM-GPT"}`
 | LLM | Google Gemini 2.5-flash |
 | Embeddings | Gemini embedding-001 (3072-dim) |
 | Vector DB | FAISS (IndexFlatL2) |
-| Backend | FastAPI + Uvicorn |
+| Backend | FastAPI + Uvicorn + slowapi (rate limiting) |
 | Primary Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4, Framer Motion |
 | Backup Frontend | Streamlit |
 | PDF Parsing | PyMuPDF |
@@ -225,8 +225,13 @@ See [docs/architecture.md](docs/architecture.md) for a detailed breakdown.
 
 - No authentication — the API is open
 - Chat history is not persisted across page refreshes
-- Backend URL is hardcoded to `localhost:8000` in `ChatContainer.tsx` (must be changed before deployment)
 - Confidence score is a heuristic based on L2 distance, not calibrated
+
+### Configuration
+
+The frontend reads `NEXT_PUBLIC_API_URL` from `landing/.env.local`. Set this to point to your deployed backend before hosting.
+
+The backend reads `ALLOWED_ORIGINS` (comma-separated) and `LLM_TIMEOUT_SECONDS` from `.env`. See `.env.example`.
 
 See [docs/post_demo_improvements.md](docs/post_demo_improvements.md) for the full prioritized roadmap.
 

@@ -34,19 +34,8 @@ These block real student use. Do these before any campus-wide rollout.
 - Frontend: replace in-memory state with API calls to `/conversations` endpoints
 - Each conversation = `{id, title, messages[], created_at}`
 
-### 1.4 Proper Environment Configuration
-**Why:** Backend URL is hardcoded as `http://localhost:8000` in `ChatContainer.tsx`. Will break in any deployed environment.
-
-```ts
-// landing/components/chat/ChatContainer.tsx — current
-const STREAM_URL = "http://localhost:8000/query/stream";
-
-// Fix: use Next.js env variable
-const STREAM_URL = process.env.NEXT_PUBLIC_API_URL + "/query/stream";
-```
-
-- Add `.env.local` for Next.js and `.env.production` for backend
-- Document all env variables in README
+### 1.4 ✅ Proper Environment Configuration — DONE
+Backend URL now read from `NEXT_PUBLIC_API_URL` in `landing/.env.local`. Backend CORS origins read from `ALLOWED_ORIGINS` in `.env`. See `.env.example` for all variables.
 
 ---
 
@@ -70,26 +59,15 @@ landing/__tests__/
   ChatContainer.test.tsx  # SSE stream parsing logic
 ```
 
-### 2.2 Structured Logging
-**Why:** Currently the backend prints to stdout with no structure. Impossible to debug in production.
+### 2.2 ✅ Structured Logging — DONE
+All backend modules (`app.py`, `rag_pipeline.py`, `llm_client.py`, `embeddings.py`) use Python `logging` with format `timestamp [LEVEL] module: message`.
 
-- Replace bare `print()` statements with Python `logging` module
-- Log format: `timestamp | level | module | message`
-- Log: every query received, retrieval time, generation time, errors with tracebacks
+### 2.3 ✅ API Rate Limiting — DONE
+slowapi middleware added to FastAPI. Limit: 10 requests/minute per IP on `/query` and `/query/stream`. Returns `429 Too Many Requests` on breach.
 
-### 2.3 API Rate Limiting
-**Why:** No throttle = one student can spam the Gemini API and burn through quota.
-
-- Add **slowapi** middleware to FastAPI
-- Limit: 10 requests/minute per IP (or per user once auth exists)
-- Return `429 Too Many Requests` with a `Retry-After` header
-
-### 2.4 Input Validation in Frontend
-**Why:** No checks before sending to backend. User can send empty strings, 10,000-character queries, etc.
-
-- Minimum query length: 5 characters
-- Maximum query length: 500 characters
-- Strip leading/trailing whitespace before send
+### 2.4 ✅ Input Validation — DONE
+- Backend: `QueryRequest.question` max_length=500 enforced by Pydantic
+- Frontend: `ChatInput.tsx` shows character counter, disables send when >500 chars
 
 ---
 
@@ -122,11 +100,8 @@ landing/__tests__/
 - Calibrate distance thresholds to actual answer correctness
 - Or: use Gemini to self-evaluate answer quality (LLM-as-judge pattern)
 
-### 3.5 Show Source Document in Citations
-**Why:** Now that multiple documents are indexed, citations should show which document the answer came from, not just the page number.
-
-- `CitationBlock.tsx` — add `source_doc` display alongside page number
-- Backend already includes `source` field in citation objects — frontend just needs to render it
+### 3.5 ✅ Show Source Document in Citations — DONE
+Backend now includes `source` field in citation objects. `CitationBlock.tsx` renders source document name alongside page number in both the pill bar and expanded excerpt cards.
 
 ---
 
@@ -197,14 +172,18 @@ docker-compose.yml    # backend + frontend + (later) postgres
 
 ## Quick Wins (< 1 day each)
 
-| # | Change | File | Impact |
+| # | Change | File | Status |
 |---|--------|------|--------|
-| 1 | Fix hardcoded `localhost:8000` URL | `ChatContainer.tsx` | Enables deployment |
-| 2 | Show `source_doc` in citation cards | `CitationBlock.tsx` | Multi-doc citations |
-| 3 | Add real sidebar conversation history | `Sidebar.tsx` | Removes fake placeholder data |
-| 4 | Add query length validation to ChatInput | `ChatInput.tsx` | Prevents bad API calls |
-| 5 | Add `python-logging` to backend | `app.py`, `rag_pipeline.py` | Debuggability |
-| 6 | Add `/metrics` data to `/health` endpoint | `backend/app.py` | Monitoring readiness |
+| 1 | Fix hardcoded `localhost:8000` URL | `ChatContainer.tsx` | ✅ Done |
+| 2 | Show `source_doc` in citation cards | `CitationBlock.tsx` | ✅ Done |
+| 3 | Add real sidebar conversation history | `Sidebar.tsx` | Pending |
+| 4 | Add query length validation to ChatInput | `ChatInput.tsx` | ✅ Done |
+| 5 | Add `python-logging` to backend | `app.py`, `rag_pipeline.py` | ✅ Done |
+| 6 | Real `/health` endpoint | `backend/app.py` | ✅ Done |
+| 7 | Rate limiting | `backend/app.py` | ✅ Done |
+| 8 | LLM + fetch timeouts | `llm_client.py`, `ChatContainer.tsx` | ✅ Done |
+| 9 | Fix prompt injection | `rag_pipeline.py` | ✅ Done |
+| 10 | Fix citation fallback (false confidence) | `rag_pipeline.py` | ✅ Done |
 
 ---
 
