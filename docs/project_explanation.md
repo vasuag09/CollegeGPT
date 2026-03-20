@@ -16,7 +16,7 @@
 12. [Prompt Engineering](#12-prompt-engineering)
 13. [RAG Pipeline](#13-rag-pipeline)
 14. [FastAPI Backend](#14-fastapi-backend)
-15. [Streamlit Chat Interface](#15-streamlit-chat-interface)
+15. [Chat Interfaces](#15-chat-interfaces)
 16. [End-to-End Data Flow](#16-end-to-end-data-flow)
 17. [Setup & Running Instructions](#17-setup--running-instructions)
 18. [Demo Questions & Expected Behavior](#18-demo-questions--expected-behavior)
@@ -27,9 +27,9 @@
 
 ## 1. Project Overview
 
-**NM-GPT** is an AI-powered campus policy assistant that uses **Retrieval-Augmented Generation (RAG)** to answer student questions about the Student Resource Book (SRB). Instead of training a model on college data, we use a smarter approach: we store the SRB content in a searchable vector database and feed only the relevant sections to Google's Gemini LLM at query time. This ensures accurate, cited, and up-to-date answers.
+**NM-GPT** is an AI-powered campus policy assistant that uses **Retrieval-Augmented Generation (RAG)** to answer student questions about NMIMS institutional documents — the Student Resource Book, Academic Calendar, examination rules, and related policies. Instead of training a model on college data, we use a smarter approach: we store document content in a searchable vector database and feed only the relevant sections to Google's Gemini LLM at query time. This ensures accurate, cited, and up-to-date answers.
 
-The system is designed as a **working prototype** that can be demoed locally. The architecture is modular so it can later expand into a full campus-wide AI platform supporting multiple documents, departments, and services.
+The system is designed as a **working prototype** demonstrated to college administration. The architecture is modular so it can expand into a full campus-wide AI platform supporting multiple documents, departments, and services.
 
 ---
 
@@ -78,10 +78,10 @@ The system follows a **four-layer modular architecture**:
 └───────────────────────────────────────────────────────────┘
 ```
 
-Additionally, a **separate Ingestion Pipeline** preprocesses the SRB PDF into chunks and builds the vector index (this runs once, offline):
+Additionally, a **separate Ingestion Pipeline** preprocesses all documents in `pdfs/` into chunks and builds the vector index (run after adding new documents):
 
 ```
-SRB PDF → Extract Text → Chunk Text → Generate Embeddings → Build FAISS Index
+pdfs/ (PDFs + TXTs) → Extract Text (with source_doc) → Chunk Text → Generate Embeddings → Build FAISS Index
 ```
 
 ---
@@ -91,13 +91,14 @@ SRB PDF → Extract Text → Chunk Text → Generate Embeddings → Build FAISS 
 | Component | Technology | Why This Choice |
 |-----------|-----------|-----------------|
 | **Language** | Python 3.9+ | Industry standard for AI/ML, rich ecosystem |
-| **LLM** | Google Gemini 1.5 Flash | Fast, free tier available, good instruction following |
-| **Embeddings** | Gemini Embedding-001 | Native integration with Gemini, good semantic quality |
+| **LLM** | Google Gemini 2.5 Flash | Fast, free tier available, good instruction following |
+| **Embeddings** | Gemini Embedding-001 (3072-dim) | Native integration with Gemini, good semantic quality |
 | **Vector Database** | FAISS (IndexFlatL2) | Facebook's library, fast exact search, no server needed |
 | **PDF Parsing** | PyMuPDF (fitz) | Fastest Python PDF library, preserves page structure |
 | **Text Splitting** | LangChain TextSplitters | Smart recursive splitting with overlap |
 | **Backend** | FastAPI | Async, auto-generates OpenAPI docs, type-safe |
-| **Frontend** | Streamlit | Rapid prototyping for chat interfaces |
+| **Primary Frontend** | Next.js 16 + React 19 + TypeScript + Tailwind CSS 4 | Production-grade chat UI with SSE streaming |
+| **Backup Frontend** | Streamlit | Simple fallback UI (no SSE streaming) |
 | **Config** | python-dotenv | Secure API key management via .env files |
 
 ---
@@ -110,33 +111,56 @@ NM-GPT/
 │   ├── __init__.py               # Package marker
 │   ├── config.py                 # Centralized configuration
 │   ├── embeddings.py             # Embedding model wrapper
-│   ├── llm_client.py             # Gemini LLM client
+│   ├── llm_client.py             # Gemini LLM client with streaming
 │   ├── rag_pipeline.py           # Full RAG pipeline
 │   ├── app.py                    # FastAPI web server
 │   └── prompts/                  # LLM prompt templates
 │       ├── system_prompt.txt     # System behavior rules
 │       └── retrieval_prompt.txt  # Query template with placeholders
 │
-├── scripts/                      # One-time ingestion scripts
-│   ├── extract_pdf.py            # PDF → pages.json
+├── scripts/                      # Ingestion scripts (re-run when pdfs/ changes)
+│   ├── extract_pdf.py            # pdfs/ (PDFs + TXT) → pages.json
 │   ├── chunk_documents.py        # pages.json → chunks.jsonl
-│   └── build_index.py            # chunks.jsonl → FAISS index
+│   ├── build_index.py            # chunks.jsonl → FAISS index
+│   └── verify_api.py             # API smoke test
 │
-├── streamlit_app/                # Chat interface
-│   └── app.py                    # Streamlit chat UI
+├── landing/                      # Next.js frontend (primary)
+│   ├── app/
+│   │   ├── layout.tsx
+│   │   └── page.tsx
+│   └── components/
+│       ├── Sidebar.tsx
+│       └── chat/
+│           ├── ChatLayout.tsx
+│           ├── ChatContainer.tsx
+│           ├── ChatInput.tsx
+│           ├── MessageBubble.tsx
+│           ├── EmptyState.tsx
+│           └── CitationBlock.tsx
+│
+├── streamlit_app/                # Backup chat interface (no SSE streaming)
+│   └── app.py
+│
+├── pdfs/                         # Source documents — add new PDFs/TXTs here
+│   ├── Final SRB A.Y. 2025-26 .................................pdf
+│   ├── Academic Calendar MPSTME 2025-26.txt
+│   ├── INSTRUCTIONS TO STUDENTS FOR TEE EXAM (003).pdf
+│   ├── Student Code of Conduct for Examinations.pdf
+│   ├── UFM_offence penalty_AY_2025-26.pdf
+│   └── University Examination Student Instructions.pdf
 │
 ├── data/                         # Generated data (gitignored)
-│   ├── pages.json                # Raw extracted pages
-│   └── chunks.jsonl              # Processed chunks with metadata
+│   ├── pages.json                # Raw extracted pages (with source_doc)
+│   └── chunks.jsonl              # 442 processed chunks
 │
 ├── index/                        # Vector index (gitignored)
-│   ├── faiss_index.bin           # FAISS binary index
+│   ├── faiss_index.bin           # FAISS binary index (442 vectors, 3072-dim)
 │   └── metadata.json             # Chunk metadata (parallel to vectors)
 │
 ├── docs/                         # Documentation
 │   ├── architecture.md           # Architecture overview
-│   ├── demo_script.md            # Demo flow & example questions
-│   └── project_explanation.md    # This file
+│   ├── project_explanation.md    # This file
+│   └── post_demo_improvements.md # Prioritized roadmap
 │
 ├── requirements.txt              # Python dependencies
 ├── .env.example                  # API key template
@@ -234,8 +258,8 @@ DATA_DIR = PROJECT_ROOT / "data"
 INDEX_DIR = PROJECT_ROOT / "index"
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 
-# Source PDF
-SRB_PDF_PATH = PROJECT_ROOT / "Final SRB A.Y. 2025-26 .................................pdf"
+# PDF documents directory — place all PDFs and TXT files here
+DOCS_DIR = PROJECT_ROOT / "pdfs"
 
 # Generated artefacts
 CHUNKS_PATH = DATA_DIR / "chunks.jsonl"
@@ -247,7 +271,7 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 
 # ── Model Settings ───────────────────────────────────────────
 EMBEDDING_MODEL = "models/gemini-embedding-001"
-LLM_MODEL = "gemini-1.5-flash"
+LLM_MODEL = "gemini-2.5-flash"
 LLM_TEMPERATURE = 0.2
 
 # ── Chunking ─────────────────────────────────────────────────
@@ -302,7 +326,7 @@ The ingestion pipeline runs **once** (or whenever the SRB is updated) to prepare
 
 **File: `scripts/extract_pdf.py`**
 
-Reads the SRB PDF and extracts raw text from each page, preserving page numbers.
+Reads all PDFs and TXT files from the `pdfs/` directory and extracts raw text from each page, preserving page numbers and tagging each page with its `source_doc` (the filename without extension).
 
 ```python
 #!/usr/bin/env python3
@@ -578,8 +602,8 @@ python scripts/chunk_documents.py
 ✂️  Chunking text…
    408 raw chunks created
 🔗 Merging short cross-page chunks…
-   405 final chunks
-💾 Saved 405 chunks to: data/chunks.jsonl
+   442 final chunks
+💾 Saved 442 chunks to: data/chunks.jsonl
 
 ── Sample Chunk ──
    ID:    chunk_0000
@@ -603,7 +627,7 @@ python scripts/chunk_documents.py
    # Chunk 4: chars 2400-3303 (remainder)
    ```
 3. **Cross-page merging** — Page 2 only has 66 characters ("STUDENT RESOURCE BOOK...Part-I..."). Since 66 < 100 (`MIN_CHUNK_LENGTH`), it gets merged with the first chunk of Page 3. That's why `chunk_0000` shows `pages: 2-3`.
-4. **Re-indexing** — After merging reduces 408 → 405 chunks, IDs are reassigned sequentially.
+4. **Re-indexing** — After merging, IDs are reassigned sequentially. With all 6 documents, this produces 442 final chunks.
 
 **Sample actual chunk from `chunks.jsonl` (chunk_0042):**
 ```json
@@ -1466,7 +1490,7 @@ Number of source citations: 5
 
 **File: `backend/app.py`**
 
-The REST API server that the Streamlit frontend communicates with.
+The REST API server that the frontends communicate with. Serves both the Next.js primary frontend (via SSE streaming at `/query/stream`) and the Streamlit backup (via `/query`).
 
 ```python
 from __future__ import annotations
@@ -1642,11 +1666,15 @@ Sources: 5 chunks
 
 ---
 
-## 15. Streamlit Chat Interface
+## 15. Chat Interfaces
 
-**File: `streamlit_app/app.py`**
+### Primary: Next.js (`landing/`)
 
-The student-facing chat interface.
+The production-grade student-facing chat UI. Uses SSE streaming via `/query/stream` for real-time token display. Key components: `ChatContainer.tsx` (stream reader), `MessageBubble.tsx` (markdown rendering), `CitationBlock.tsx` (confidence bar + source cards), `EmptyState.tsx` (suggestion chips), `Sidebar.tsx` (conversation history).
+
+### Backup: Streamlit (`streamlit_app/app.py`)
+
+Simpler fallback UI. Uses synchronous `/query` endpoint (no streaming — blocks until full response). Useful for quick testing or if Next.js is unavailable.
 
 ```python
 from __future__ import annotations
@@ -1956,27 +1984,34 @@ cp .env.example .env
 # Edit .env and replace "your_gemini_api_key_here" with your actual key
 ```
 
-### Step 3: Run Ingestion Pipeline (one-time)
+### Step 3: Add Documents and Run Ingestion Pipeline
 ```bash
-# Extract text from PDF (no API key needed)
+# Place all PDFs (and .txt files for scanned PDFs) in the pdfs/ directory
+
+# Extract text from all documents (no API key needed)
 python scripts/extract_pdf.py
 
 # Split into chunks (no API key needed)
 python scripts/chunk_documents.py
 
-# Generate embeddings and build FAISS index (needs API key)
+# Generate embeddings and build FAISS index (needs API key, ~10 min for 442 chunks)
 python scripts/build_index.py
 ```
 
 ### Step 4: Start the Backend
 ```bash
-uvicorn backend.app:app --reload --port 8000
+python -m uvicorn backend.app:app --host localhost --port 8000
 ```
 Verify: open [http://localhost:8000/health](http://localhost:8000/health) — should show `{"status": "healthy"}`
 
-### Step 5: Start the Chat Interface
+### Step 5: Start the Primary Frontend
 ```bash
-# In a new terminal window
+cd landing && npm install && npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000)
+
+### Alternative: Streamlit Backup UI
+```bash
 streamlit run streamlit_app/app.py
 ```
 Open the URL shown (usually [http://localhost:8501](http://localhost:8501))

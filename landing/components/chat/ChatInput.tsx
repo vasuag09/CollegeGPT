@@ -10,15 +10,9 @@ interface ChatInputProps {
   disabled?: boolean;
 }
 
-export default function ChatInput({
-  value,
-  onChange,
-  onSend,
-  disabled,
-}: ChatInputProps) {
+export default function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea
   const adjustHeight = useCallback(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -33,58 +27,74 @@ export default function ChatInput({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (!disabled && value.trim()) {
-        onSend();
-      }
+      if (!disabled && value.trim()) onSend();
     }
   };
 
+  const hasText = value.trim().length > 0;
+
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pb-6 pt-2">
+    <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 pb-5 pt-3">
+      {/* Input card */}
       <div className="relative group">
-        {/* Glow effect on focus */}
-        <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 to-accent/30 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition duration-500" />
-        
-        <div className="relative flex items-end gap-2 bg-surface border border-border rounded-2xl p-2 pl-4 shadow-xl focus-within:border-primary/50 transition-all duration-300">
+        {/* Amber glow on focus */}
+        <div className="absolute -inset-px rounded-2xl bg-gradient-to-r from-primary/40 via-accent/30 to-primary/40 opacity-0 group-focus-within:opacity-100 transition-opacity duration-400 blur-sm" />
+
+        <div className="relative flex items-end gap-3 bg-surface border border-border rounded-2xl px-4 py-3 shadow-2xl shadow-black/40 focus-within:border-primary/40 transition-colors duration-300">
+          {/* Textarea */}
           <textarea
             ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about attendance, exams, or policies..."
+            placeholder="Ask about policies, exams, attendance, or anything campus…"
             rows={1}
             disabled={disabled}
-            className="flex-1 text-[15px] py-3 bg-transparent focus:outline-none placeholder:text-muted text-foreground disabled:opacity-50 leading-relaxed resize-none max-h-[200px] custom-scrollbar"
+            className="flex-1 text-sm py-1.5 bg-transparent focus:outline-none placeholder:text-muted/60 text-foreground disabled:opacity-40 leading-relaxed resize-none max-h-[200px] custom-scrollbar"
           />
-          
+
+          {/* Send button */}
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: hasText && !disabled ? 1.05 : 1 }}
+            whileTap={{ scale: hasText && !disabled ? 0.92 : 1 }}
             onClick={onSend}
-            disabled={disabled || !value.trim()}
-            className="w-11 h-11 rounded-xl bg-primary hover:bg-primary-dark text-white flex items-center justify-center shrink-0 disabled:opacity-20 disabled:grayscale transition-all duration-200 shadow-lg shadow-primary/20"
+            disabled={disabled || !hasText}
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all duration-200"
+            style={{
+              background: hasText && !disabled
+                ? "linear-gradient(135deg, #f59e0b, #d97706)"
+                : "rgba(28, 28, 50, 0.6)",
+              boxShadow: hasText && !disabled
+                ? "0 4px 14px rgba(245, 158, 11, 0.3)"
+                : "none",
+              opacity: disabled ? 0.35 : 1,
+            }}
             aria-label="Send message"
           >
             <svg
-              className="w-5 h-5"
+              className="w-4 h-4"
+              style={{ color: hasText && !disabled ? "white" : "#64748b" }}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2.5}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 12h14M12 5l7 7-7 7"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </motion.button>
         </div>
       </div>
-      
-      <p className="text-[11px] text-center text-muted mt-3 font-medium tracking-wide">
-        NM-GPT is powered by the Student Resource Book. Responses may be summarized.
-      </p>
+
+      {/* Footer hint */}
+      <div className="flex items-center justify-center gap-3 mt-2.5">
+        <span className="text-[10px] text-muted/50 font-medium tracking-wide">
+          Answers sourced from official NMIMS documents
+        </span>
+        <span className="text-[10px] text-muted/35">·</span>
+        <span className="text-[10px] text-muted/35 font-medium">
+          Shift+Enter for newline
+        </span>
+      </div>
     </div>
   );
 }

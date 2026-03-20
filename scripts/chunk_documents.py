@@ -30,9 +30,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from backend.config import DATA_DIR, CHUNK_SIZE, CHUNK_OVERLAP
 
 
-SOURCE_NAME = "Student Resource Book (SRB) A.Y. 2025-26"
-
-
 def load_pages(pages_path: Path) -> list[dict]:
     """Load extracted pages from JSON."""
     with open(pages_path, "r", encoding="utf-8") as f:
@@ -54,6 +51,7 @@ def chunk_pages(pages: list[dict]) -> list[dict]:
     for page in pages:
         page_num = page["page_number"]
         text = page["text"]
+        source = page.get("source_doc", "Unknown Document")
 
         # Split this page's text
         page_chunks = splitter.split_text(text)
@@ -62,7 +60,7 @@ def chunk_pages(pages: list[dict]) -> list[dict]:
             chunks.append({
                 "chunk_id": f"chunk_{chunk_id:04d}",
                 "text": chunk_text,
-                "source": SOURCE_NAME,
+                "source": source,
                 "page_start": page_num,
                 "page_end": page_num,
             })

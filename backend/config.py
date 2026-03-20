@@ -22,8 +22,8 @@ DATA_DIR = PROJECT_ROOT / "data"
 INDEX_DIR = PROJECT_ROOT / "index"
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 
-# Source PDF
-SRB_PDF_PATH = PROJECT_ROOT / "Final SRB A.Y. 2025-26 .................................pdf"
+# PDF documents directory — place all PDFs here before running ingestion
+DOCS_DIR = PROJECT_ROOT / "pdfs"
 
 # Generated artefacts
 CHUNKS_PATH = DATA_DIR / "chunks.jsonl"

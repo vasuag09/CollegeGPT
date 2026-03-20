@@ -2,14 +2,15 @@
 
 ## Overview
 
-NM-GPT is a Retrieval-Augmented Generation (RAG) system that allows students to ask natural language questions about the Student Resource Book (SRB) and receive answers with page citations.
+NM-GPT is a Retrieval-Augmented Generation (RAG) system that allows students to ask natural language questions about NMIMS institutional documents and receive accurate, cited answers.
 
 ## System Architecture
 
 ```mermaid
 graph TB
     subgraph Interface Layer
-        ST[Streamlit Chat UI]
+        NX[Next.js Chat UI — primary]
+        ST[Streamlit Chat UI — backup]
     end
 
     subgraph Application Layer
@@ -19,7 +20,7 @@ graph TB
 
     subgraph AI Layer
         EMB[Gemini Embeddings]
-        LLM[Gemini LLM]
+        LLM[Gemini 2.5-flash]
     end
 
     subgraph Storage Layer
@@ -29,7 +30,7 @@ graph TB
     end
 
     subgraph Ingestion Pipeline
-        PDF[SRB PDF] --> EXT[Extract Text]
+        PDFS[pdfs/ — PDFs and TXT files] --> EXT[Extract Text]
         EXT --> CHK[Chunk Documents]
         CHK --> CHUNKS
         CHK --> EMB
@@ -37,6 +38,7 @@ graph TB
         CHK --> META
     end
 
+    NX -->|SSE /query/stream| FA
     ST -->|HTTP POST /query| FA
     FA --> RAG
     RAG --> EMB
@@ -44,6 +46,7 @@ graph TB
     RAG --> META
     RAG --> LLM
     LLM --> FA
+    FA --> NX
     FA --> ST
 ```
 
@@ -53,40 +56,55 @@ graph TB
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/extract_pdf.py` | Extracts text from SRB PDF page-by-page using PyMuPDF |
-| `scripts/chunk_documents.py` | Splits pages into overlapping chunks (~1000 chars) |
-| `scripts/build_index.py` | Generates Gemini embeddings and builds FAISS index |
+| `scripts/extract_pdf.py` | Extracts text from all PDFs and TXT files in `pdfs/`, tagging each page with its `source_doc` |
+| `scripts/chunk_documents.py` | Splits pages into overlapping chunks (~1000 chars), preserving `source_doc` as the `source` field |
+| `scripts/build_index.py` | Generates Gemini embeddings and builds FAISS index with resume capability |
+
+**Current indexed documents (442 vectors):**
+- Final SRB A.Y. 2025-26 — 112 pages
+- Academic Calendar MPSTME 2025-26 — 1 page (text file)
+- INSTRUCTIONS TO STUDENTS FOR TEE EXAM — 2 pages
+- Student Code of Conduct for Examinations — 2 pages
+- UFM offence penalty A.Y. 2025-26 — 3 pages
+- University Examination Student Instructions — 2 pages
 
 ### 2. RAG Pipeline (`backend/rag_pipeline.py`)
 
-1. **Query Embedding** — Converts student question to vector via Gemini Embeddings
+1. **Query Embedding** — Converts student question to vector via Gemini Embeddings (3072-dim)
 2. **Vector Retrieval** — Searches FAISS index for top-k similar chunks
-3. **Context Assembly** — Combines retrieved chunks with page metadata
+3. **Context Assembly** — Combines retrieved chunks with page and source metadata
 4. **Prompt Construction** — Fills retrieval prompt template with context and question
-5. **LLM Generation** — Sends prompt to Gemini, receives answer
+5. **LLM Generation** — Streams answer from Gemini 2.5-flash
 6. **Citation Extraction** — Parses [Page X] references from answer text
 
 ### 3. Backend API (`backend/app.py`)
 
-- `POST /query` — Runs RAG pipeline, returns answer + citations
 - `GET /health` — Health check
+- `POST /query` — Synchronous RAG query, returns full answer + citations
+- `POST /query/stream` — SSE streaming RAG query (primary endpoint used by Next.js frontend)
 
-### 4. Streamlit Interface (`streamlit_app/app.py`)
+### 4. Frontends
 
-- Chat-style conversation UI
-- Sidebar with example questions and settings
-- Expandable citation cards showing source text and page numbers
-- Confidence indicator
+**Primary — Next.js (`landing/`)**
+- `ChatContainer.tsx` — Core logic, SSE stream reader
+- `MessageBubble.tsx` — Renders user/AI messages with markdown
+- `CitationBlock.tsx` — Confidence bar + expandable evidence cards
+- `ChatInput.tsx` — Auto-resizing textarea, Enter to send
+- `EmptyState.tsx` — Suggestion chips on first load
+- `Sidebar.tsx` — Conversation history (currently hardcoded placeholder)
+
+**Backup — Streamlit (`streamlit_app/app.py`)**
+- Synchronous (no SSE streaming), uses `/query` endpoint
 
 ## Data Flow
 
 ```
 Student Question
-    → Embed (Gemini Embeddings)
-    → Search (FAISS top-k)
-    → Retrieve chunk metadata
-    → Assemble context
-    → Generate answer (Gemini LLM)
+    → Embed (Gemini Embeddings, 3072-dim)
+    → Search (FAISS IndexFlatL2, top-k)
+    → Retrieve chunk metadata (text, source_doc, page_start, page_end)
+    → Assemble context with [Page X] annotations
+    → Generate answer (Gemini 2.5-flash, streamed)
     → Extract citations
     → Return to student
 ```
@@ -95,20 +113,33 @@ Student Question
 
 | Component | Technology |
 |-----------|-----------|
-| Backend | Python, FastAPI |
-| LLM | Google Gemini 1.5 Flash |
-| Embeddings | Gemini Embedding-001 |
+| Backend | Python, FastAPI + Uvicorn |
+| LLM | Google Gemini 2.5-flash |
+| Embeddings | Gemini embedding-001 (3072-dim) |
 | Vector DB | FAISS (IndexFlatL2) |
-| PDF Parsing | PyMuPDF |
-| Text Splitting | LangChain |
-| Frontend | Streamlit |
+| PDF Parsing | PyMuPDF (fitz) |
+| Text Splitting | LangChain RecursiveCharacterTextSplitter |
+| Primary Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4, Framer Motion |
+| Backup Frontend | Streamlit |
+
+## Adding New Documents
+
+1. Place PDF (or `.txt` for scanned/image-based PDFs) in `pdfs/`
+2. Run the pipeline:
+   ```bash
+   python scripts/extract_pdf.py
+   python scripts/chunk_documents.py
+   python scripts/build_index.py
+   ```
+3. Restart the backend — the new index is loaded automatically
 
 ## Future Expansion
 
 The modular architecture supports:
 
-- **Multi-document**: Add more PDFs to the ingestion pipeline
-- **Department-specific data**: Separate FAISS indices per department
-- **Website ingestion**: Add a web scraper to the ingestion pipeline
-- **Authentication**: Wrap FastAPI with SSO middleware
-- **Analytics**: Add query logging and a dashboard
+- **More documents** — drop into `pdfs/`, re-run pipeline
+- **Department-specific data** — separate FAISS indices per department, route queries by intent
+- **Website ingestion** — add a web scraper to the ingestion pipeline
+- **Authentication** — wrap FastAPI with SSO middleware (NextAuth.js + python-jose)
+- **Analytics** — log queries to PostgreSQL, build an admin dashboard
+- **Question paper lookup** — structured JSON registry with subject → Google Drive link

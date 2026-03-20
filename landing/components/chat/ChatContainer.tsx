@@ -269,7 +269,7 @@ export default function ChatContainer() {
         {isEmpty ? (
           <EmptyState onSelectPrompt={handlePromptSelect} />
         ) : (
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
             <div className="space-y-2">
               {messages.map((msg) => (
                 <MessageBubble

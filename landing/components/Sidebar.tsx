@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useState } from "react";
 
 interface SidebarProps {
@@ -10,91 +9,112 @@ interface SidebarProps {
   onToggle?: () => void;
 }
 
-export default function Sidebar({ onNewChat, isOpen = true, onToggle }: SidebarProps) {
-  const [conversations] = useState([
-    { id: "1", title: "Attendance Requirements", date: "Today" },
-    { id: "2", title: "Exam Rules 2024", date: "Yesterday" },
-    { id: "3", title: "Grievance Procedure", date: "2 days ago" },
-  ]);
+const knowledgeBase = [
+  { label: "Student Resource Book", short: "SRB", icon: "📘" },
+  { label: "Academic Calendar", short: "2025–26", icon: "📅" },
+  { label: "TEE Exam Instructions", short: "Exams", icon: "📝" },
+  { label: "Code of Conduct", short: "Conduct", icon: "⚖️" },
+  { label: "UFM Offence Penalties", short: "UFM", icon: "🚨" },
+  { label: "Exam Instructions", short: "Rules", icon: "📋" },
+];
+
+
+export default function Sidebar({ onNewChat, isOpen = true }: SidebarProps) {
+  const [kbExpanded, setKbExpanded] = useState(true);
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 w-64 bg-surface border-r border-border transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+      className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col bg-surface border-r border-border transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
     >
-      <div className="flex flex-col h-full p-4">
-        {/* Header: Logo + Title */}
-        <div className="flex items-center gap-3 mb-8 px-2">
-          <Image
-            src="/logo.jpg"
-            alt="NMIMS Logo"
-            width={32}
-            height={32}
-            className="rounded-lg shadow-sm"
-          />
-          <span className="text-lg font-bold tracking-tight text-foreground">
-            NM-GPT
-          </span>
+      {/* Amber accent top bar */}
+      <div className="h-0.5 w-full bg-gradient-to-r from-primary via-accent to-transparent shrink-0" />
+
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-5 shrink-0">
+          <div className="relative">
+            <div className="w-8 h-8 rounded-lg overflow-hidden ring-1 ring-primary/30 pulse-glow">
+              <Image
+                src="/logo.jpg"
+                alt="NMIMS"
+                width={32}
+                height={32}
+                className="object-cover"
+              />
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-bold tracking-tight text-foreground leading-none">NM-GPT</p>
+            <p className="text-[10px] text-muted mt-0.5 tracking-wide">Campus AI Assistant</p>
+          </div>
         </div>
 
-        {/* New Chat Button */}
-        <button
-          onClick={onNewChat || (() => window.location.reload())}
-          className="flex items-center gap-2 w-full px-4 py-3 mb-6 bg-primary hover:bg-primary-dark text-white rounded-xl transition-all duration-200 shadow-lg shadow-primary/20 font-medium"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.5}
+        {/* New Chat */}
+        <div className="px-4 shrink-0 mb-4">
+          <button
+            onClick={onNewChat || (() => window.location.reload())}
+            className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-primary/10 hover:bg-primary/20 border border-primary/25 hover:border-primary/50 text-primary rounded-xl transition-all duration-200 font-semibold text-sm group"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          New Chat
-        </button>
+            <svg className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            New Chat
+          </button>
+        </div>
 
-        {/* Conversation History */}
-        <div className="flex-1 overflow-y-auto space-y-1 mb-4 custom-scrollbar">
-          <div className="px-2 mb-2 text-xs font-semibold text-muted uppercase tracking-wider">
-            History
-          </div>
-          {conversations.map((chat) => (
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-3 space-y-4 pb-4">
+
+          {/* Knowledge Base */}
+          <div>
             <button
-              key={chat.id}
-              className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-muted hover:text-foreground hover:bg-bubble-ai rounded-lg transition-all duration-200 group text-left"
+              onClick={() => setKbExpanded(!kbExpanded)}
+              className="flex items-center justify-between w-full px-2 py-1.5 text-[10px] font-bold text-muted uppercase tracking-widest hover:text-foreground transition-colors group"
             >
+              <div className="flex items-center gap-1.5">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 10V7" />
+                </svg>
+                Knowledge Base
+              </div>
               <svg
-                className="w-4 h-4 text-muted group-hover:text-primary transition-colors"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+                className={`w-3 h-3 transition-transform duration-200 ${kbExpanded ? "rotate-180" : ""}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
-              <span className="truncate">{chat.title}</span>
             </button>
-          ))}
+
+            {kbExpanded && (
+              <div className="mt-1 space-y-0.5">
+                {knowledgeBase.map((doc) => (
+                  <div
+                    key={doc.label}
+                    className="kb-item flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-default"
+                  >
+                    <span className="text-sm w-5 text-center shrink-0">{doc.icon}</span>
+                    <span className="text-[12px] text-muted truncate leading-tight">{doc.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
 
         {/* Footer */}
-        <div className="pt-4 border-t border-border mt-auto">
-          <div className="flex items-center justify-between px-2 py-2">
-            <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-sm">
-              Prototype v2.0
+        <div className="shrink-0 px-4 py-4 border-t border-border">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+              Beta
             </span>
-            <span className="text-xs text-muted font-medium">NMIMS SRB</span>
+            <span className="text-[10px] text-muted">MPSTME · NMIMS</span>
           </div>
-          <div className="px-2 pb-2 mt-1">
-            <p className="text-[10px] text-muted-foreground/60 font-medium">
-              Created by Vasu Agrawal & Vanisha Sharma
-            </p>
-          </div>
+          <p className="text-[10px] text-muted/60 leading-relaxed">
+            By Vasu Agrawal &amp; Vanisha Sharma
+          </p>
         </div>
       </div>
     </aside>

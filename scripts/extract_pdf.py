@@ -4,16 +4,14 @@ from __future__ import annotations
 """
 NM-GPT – PDF Text Extraction
 
-Extracts text from the SRB PDF page-by-page using PyMuPDF,
-preserving page numbers in metadata.
+Extracts text from all PDFs in the pdfs/ directory page-by-page using PyMuPDF,
+preserving page numbers and source document name in metadata.
 
 Usage:
     python scripts/extract_pdf.py
 
 Output:
-    data/chunks.jsonl is NOT produced here — this script outputs
-    an intermediate JSON file (data/pages.json) that chunk_documents.py
-    consumes.
+    data/pages.json  — consumed by chunk_documents.py
 """
 
 import json
@@ -25,14 +23,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import fitz  # PyMuPDF
 
-from backend.config import SRB_PDF_PATH, DATA_DIR
+from backend.config import DOCS_DIR, DATA_DIR
 
 
 def extract_pages(pdf_path: Path) -> list[dict]:
-    """Extract text from every page of the PDF.
+    """Extract text from every page of a PDF.
 
     Returns a list of dicts:
-      {"page_number": int, "text": str}
+      {"page_number": int, "text": str, "source_doc": str}
     """
     doc = fitz.open(str(pdf_path))
     pages = []
@@ -43,33 +41,63 @@ def extract_pages(pdf_path: Path) -> list[dict]:
             pages.append({
                 "page_number": page_num + 1,  # 1-indexed
                 "text": text.strip(),
+                "source_doc": pdf_path.stem,  # filename without extension
             })
     doc.close()
     return pages
 
 
+def extract_txt(txt_path: Path) -> list[dict]:
+    """Read a plain text file as a single page."""
+    text = txt_path.read_text(encoding="utf-8").strip()
+    if not text:
+        return []
+    return [{
+        "page_number": 1,
+        "text": text,
+        "source_doc": txt_path.stem,
+    }]
+
+
 def main():
-    if not SRB_PDF_PATH.exists():
-        print(f"❌ PDF not found at: {SRB_PDF_PATH}")
+    if not DOCS_DIR.exists():
+        print(f"❌ pdfs/ directory not found at: {DOCS_DIR}")
+        print("   Create it and place your PDF files inside.")
         sys.exit(1)
 
-    print(f"📄 Extracting text from: {SRB_PDF_PATH.name}")
-    pages = extract_pages(SRB_PDF_PATH)
-    print(f"✅ Extracted {len(pages)} pages with text")
+    pdf_files = sorted(DOCS_DIR.glob("*.pdf"))
+    txt_files = sorted(DOCS_DIR.glob("*.txt"))
+    all_files = pdf_files + txt_files
 
-    # Ensure output directory exists
+    if not all_files:
+        print(f"❌ No PDF or TXT files found in: {DOCS_DIR}")
+        sys.exit(1)
+
+    print(f"📂 Found {len(pdf_files)} PDF(s) and {len(txt_files)} TXT(s) in {DOCS_DIR.name}/")
+    for f in all_files:
+        print(f"   • {f.name}")
+
+    all_pages = []
+    for pdf_path in pdf_files:
+        print(f"\n📄 Extracting: {pdf_path.name}")
+        pages = extract_pages(pdf_path)
+        print(f"   ✅ {len(pages)} pages extracted")
+        all_pages.extend(pages)
+
+    for txt_path in txt_files:
+        print(f"\n📝 Reading: {txt_path.name}")
+        pages = extract_txt(txt_path)
+        print(f"   ✅ {len(pages)} page(s) loaded")
+        all_pages.extend(pages)
+
+    print(f"\n📊 Total pages across all documents: {len(all_pages)}")
+
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     output_path = DATA_DIR / "pages.json"
-
     with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(pages, f, ensure_ascii=False, indent=2)
+        json.dump(all_pages, f, ensure_ascii=False, indent=2)
 
     print(f"💾 Saved to: {output_path}")
-
-    # Print a preview of the first page
-    if pages:
-        preview = pages[0]["text"][:300]
-        print(f"\n── Page 1 Preview ──\n{preview}…")
 
 
 if __name__ == "__main__":
