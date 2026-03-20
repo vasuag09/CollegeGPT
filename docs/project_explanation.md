@@ -285,6 +285,21 @@ DEFAULT_TOP_K = 5
 BACKEND_HOST = "localhost"
 BACKEND_PORT = 8000
 BACKEND_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}"
+
+# ── CORS ─────────────────────────────────────────────────────
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001"
+    ).split(",")
+    if o.strip()
+]
+
+# ── Input Limits ─────────────────────────────────────────────
+MAX_QUESTION_LENGTH = 500
+
+# ── LLM Timeout ──────────────────────────────────────────────
+LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "60"))
 ```
 
 ### How It Works
@@ -293,6 +308,9 @@ BACKEND_URL = f"http://{BACKEND_HOST}:{BACKEND_PORT}"
 - **`Path(__file__).resolve().parent.parent`** — Dynamically resolves to the project root regardless of where the script is run from.
 - **`LLM_TEMPERATURE = 0.2`** — Low temperature means more deterministic, factual answers. Higher values (0.7+) make the model more creative but less reliable for policy questions.
 - **`CHUNK_SIZE = 1000` / `CHUNK_OVERLAP = 200`** — Each chunk is ~1000 characters with 200 characters of overlap with the previous chunk. Overlap ensures that information spanning a chunk boundary isn't lost.
+- **`ALLOWED_ORIGINS`** — Controls which frontends are allowed to call the API (CORS). Read from the `ALLOWED_ORIGINS` env var so production deployments can restrict access to specific domains.
+- **`MAX_QUESTION_LENGTH`** — Enforced on both the backend (Pydantic `max_length`) and frontend (character counter in `ChatInput.tsx`).
+- **`LLM_TIMEOUT_SECONDS`** — Passed to `ChatGoogleGenerativeAI` to abort hanging requests. Configurable so slow networks can raise it without code changes.
 
 ### 💡 Example: Accessing Configuration Values
 
@@ -1015,8 +1033,12 @@ Uses LangChain's ChatGoogleGenerativeAI for consistency with the
 rest of the pipeline.
 """
 
-from backend.config import GOOGLE_API_KEY, LLM_MODEL, LLM_TEMPERATURE
+import logging
+from collections.abc import Generator
+from backend.config import GOOGLE_API_KEY, LLM_MODEL, LLM_TEMPERATURE, LLM_TIMEOUT_SECONDS
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+logger = logging.getLogger("nmgpt.llm")
 
 
 def get_llm() -> ChatGoogleGenerativeAI:
@@ -1030,19 +1052,33 @@ def get_llm() -> ChatGoogleGenerativeAI:
         model=LLM_MODEL,
         google_api_key=GOOGLE_API_KEY,
         temperature=LLM_TEMPERATURE,
+        transport="rest",
+        timeout=LLM_TIMEOUT_SECONDS,
     )
 
 
 def generate(prompt: str) -> str:
     """Send a prompt to the LLM and return the text response."""
+    logger.info("Invoking LLM (model=%s, timeout=%ds)", LLM_MODEL, LLM_TIMEOUT_SECONDS)
     llm = get_llm()
     response = llm.invoke(prompt)
-    return response.content
+    return str(response.content)
+
+
+def generate_stream(prompt: str) -> Generator[str, None, None]:
+    """Stream tokens from the LLM, yielding each chunk as it arrives."""
+    logger.info("Streaming LLM (model=%s, timeout=%ds)", LLM_MODEL, LLM_TIMEOUT_SECONDS)
+    llm = get_llm()
+    for chunk in llm.stream(prompt):
+        if chunk.content:
+            yield str(chunk.content)
 ```
 
 **Design Notes:**
 - **Temperature 0.2** — Low value for precise, factual answers. Not 0.0 because a bit of flexibility helps with natural phrasing.
+- **`timeout=LLM_TIMEOUT_SECONDS`** — Prevents the server from hanging indefinitely if the Gemini API is slow. Configurable via `LLM_TIMEOUT_SECONDS` in `.env` (default 60s).
 - **`ChatGoogleGenerativeAI`** from LangChain — Provides a consistent interface. If we switch to OpenAI later, we only change this file.
+- **Structured logging** — Every LLM call is logged so you can track latency and spot timeouts in production.
 
 ### 💡 Example: Using the LLM Client
 
@@ -1167,9 +1203,14 @@ The minimum attendance requirement is 75%...
 Students who fall below 75% attendance..."""
 
 # Step 2: Fill in the retrieval template
-retrieval_prompt = retrieval_prompt_template.format(
-    context=context,
-    question=question
+# Note: uses .replace() instead of .format() to prevent prompt injection —
+# if a user's question contains "{context}" or "{question}", .format() would
+# try to substitute it as a Python format string, potentially leaking or
+# corrupting the prompt. .replace() treats the value as a literal string.
+retrieval_prompt = (
+    retrieval_prompt_template
+    .replace("{context}", context)
+    .replace("{question}", question)
 )
 
 # Step 3: Combine with system prompt
@@ -1299,14 +1340,26 @@ class RAGPipeline:
         return "\n\n".join(context_parts)
 
     def _build_prompt(self, context: str, question: str) -> str:
-        """Build the full prompt from system prompt + retrieval template."""
-        retrieval_prompt = self.retrieval_prompt_template.format(
-            context=context, question=question,
+        """Build the full prompt from system prompt + retrieval template.
+
+        Uses .replace() instead of .format() to prevent prompt injection:
+        if a user's question contained "{context}", .format() would corrupt
+        the prompt. .replace() always treats the value as a literal string.
+        """
+        retrieval_prompt = (
+            self.retrieval_prompt_template
+            .replace("{context}", context)
+            .replace("{question}", question)
         )
         return f"{self.system_prompt}\n\n{retrieval_prompt}"
 
     def _extract_page_citations(self, answer: str, chunks: list[dict]) -> list[int]:
-        """Extract page numbers cited in the answer text."""
+        """Extract page numbers explicitly cited in the answer text.
+
+        Only returns pages that the LLM actually cited with [Page X] or
+        [Pages X-Y] markers. Returns an empty list if the model did not
+        include any citations — this is the honest result, not a fallback.
+        """
         page_pattern = r'\[Pages?\s*(\d+)(?:\s*[-–]\s*(\d+))?\]'
         matches = re.findall(page_pattern, answer)
 
@@ -1319,11 +1372,9 @@ class RAGPipeline:
                 for p in range(start_page, end_page + 1):
                     pages.add(p)
 
-        if not pages:
-            for chunk in chunks:
-                for p in range(chunk["page_start"], chunk["page_end"] + 1):
-                    pages.add(p)
-
+        # No fallback to retrieved chunk pages — if the LLM didn't cite
+        # anything, the pages list is empty. Fabricating citations from
+        # retrieved chunks would give false confidence to the student.
         return sorted(pages)
 
     def _compute_confidence(self, chunks: list[dict]) -> float:
@@ -1370,6 +1421,7 @@ class RAGPipeline:
                 "page_start": c["page_start"],
                 "page_end": c["page_end"],
                 "chunk_id": c["chunk_id"],
+                "source": c.get("source", ""),   # source document filename
             }
             for c in chunks
         ]
@@ -1390,7 +1442,7 @@ class RAGPipeline:
 | `retrieve()` | Converts the student question to a vector, searches FAISS for the `top_k` nearest chunks, returns them with distance scores. |
 | `_assemble_context()` | Formats retrieved chunks into a readable string with page annotations like `[Page 12]` before each chunk's text. |
 | `_build_prompt()` | Combines the system prompt + retrieval template (filled with context and question) into a single prompt for the LLM. |
-| `_extract_page_citations()` | Uses regex to find `[Page X]` or `[Pages X-Y]` patterns in the LLM's answer. Falls back to retrieved chunk pages if no explicit citations are found. |
+| `_extract_page_citations()` | Uses regex to find `[Page X]` or `[Pages X-Y]` patterns in the LLM's answer. Returns an empty list if the LLM didn't cite anything — no fallback to retrieved chunk pages (that would fabricate citations). |
 | `_compute_confidence()` | Heuristic: maps the average L2 distance of retrieved chunks to a 0–1 confidence score. Lower distance = higher confidence. |
 | `query()` | Orchestrates the full pipeline: retrieve → assemble → generate → extract citations → return structured response. |
 
@@ -1499,46 +1551,62 @@ from __future__ import annotations
 NM-GPT – FastAPI Backend
 
 Endpoints:
-  POST /query  – Answer a student question using the RAG pipeline
-  GET  /health – Health check
+  POST /query         – Answer a student question using the RAG pipeline
+  POST /query/stream  – Stream answer tokens via Server-Sent Events
+  GET  /health        – Health check (verifies index files + API key)
 """
 
-from fastapi import FastAPI, HTTPException
+import json
+import logging
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
-from backend.config import DEFAULT_TOP_K
-
-app = FastAPI(
-    title="NM-GPT API",
-    description="Campus Policy AI Assistant",
-    version="1.0.0",
+from backend.config import (
+    ALLOWED_ORIGINS, DEFAULT_TOP_K, FAISS_INDEX_PATH,
+    GOOGLE_API_KEY, MAX_QUESTION_LENGTH, METADATA_PATH,
 )
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("nmgpt.app")
+
+limiter = Limiter(key_func=get_remote_address)
+
+app = FastAPI(title="NM-GPT API", version="1.0.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,   # from .env, not "*"
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 _pipeline = None
 
 
 def get_pipeline():
-    """Get or initialize the RAG pipeline singleton."""
     global _pipeline
     if _pipeline is None:
         from backend.rag_pipeline import RAGPipeline
+        logger.info("Initializing RAG pipeline...")
         _pipeline = RAGPipeline()
     return _pipeline
 
 
 class QueryRequest(BaseModel):
-    question: str = Field(..., min_length=1, description="The student's question")
-    top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=20,
-                       description="Number of chunks to retrieve")
+    question: str = Field(..., min_length=1, max_length=MAX_QUESTION_LENGTH)
+    top_k: int = Field(default=DEFAULT_TOP_K, ge=1, le=20)
 
 
 class Citation(BaseModel):
@@ -1546,6 +1614,7 @@ class Citation(BaseModel):
     page_start: int
     page_end: int
     chunk_id: str
+    source: str = ""          # source document filename
 
 
 class QueryResponse(BaseModel):
@@ -1557,34 +1626,43 @@ class QueryResponse(BaseModel):
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Real health check — verifies index files exist and API key is set."""
+    issues = []
+    if not GOOGLE_API_KEY:
+        issues.append("GOOGLE_API_KEY is not set")
+    if not FAISS_INDEX_PATH.exists():
+        issues.append(f"FAISS index not found at {FAISS_INDEX_PATH}")
+    if not METADATA_PATH.exists():
+        issues.append(f"Metadata not found at {METADATA_PATH}")
+    if issues:
+        raise HTTPException(status_code=503, detail={"status": "unhealthy", "issues": issues})
     return {"status": "healthy", "service": "NM-GPT"}
 
 
 @app.post("/query", response_model=QueryResponse)
-async def query(request: QueryRequest):
-    """Answer a student question using the RAG pipeline."""
+@limiter.limit("10/minute")
+async def query(request: Request, body: QueryRequest):
+    logger.info("Query: %r", body.question[:80])
     try:
         pipeline = get_pipeline()
-        result = pipeline.query(
-            question=request.question,
-            top_k=request.top_k,
-        )
+        result = pipeline.query(question=body.question, top_k=body.top_k)
         return QueryResponse(**result)
     except FileNotFoundError as e:
         raise HTTPException(status_code=503, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        logger.exception("Error in /query")
+        raise HTTPException(status_code=500, detail=str(e))
 ```
 
 **Key Design Decisions:**
 
 - **Lazy-loaded pipeline** — The RAG pipeline is initialized on the first request, not at startup. This means the server starts even if the FAISS index hasn't been built yet.
-- **Pydantic models** — `QueryRequest` and `QueryResponse` provide automatic validation, serialization, and OpenAPI documentation.
-- **CORS middleware** — Allows the Streamlit frontend (running on a different port) to make API calls.
-- **Error handling** — `FileNotFoundError` returns 503 (service unavailable), telling the user to build the index first.
+- **Pydantic models** — `QueryRequest` and `QueryResponse` provide automatic validation. `max_length=500` on `question` matches the frontend character limit.
+- **CORS uses `ALLOWED_ORIGINS`** — Reads from the `ALLOWED_ORIGINS` env var instead of `"*"`. This allows locking down the API to specific frontend origins in production.
+- **Real `/health`** — Checks that the FAISS index file, metadata file, and API key all exist before returning 200. Returns 503 with an `issues` list if anything is missing — useful for monitoring tools and deployment health checks.
+- **Rate limiting (slowapi)** — 10 requests/minute per IP on query endpoints. Returns 429 on breach. Prevents a single student from burning through the Gemini API quota.
+- **`source: str = ""`** in `Citation` — Backend now passes the source document filename with each citation so the frontend can display which document the answer came from.
+- **Structured logging** — Every query is logged with truncated question text so you can see what students are asking without excessive log volume.
 
 ### API Reference
 
