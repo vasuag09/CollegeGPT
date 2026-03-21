@@ -29,3 +29,12 @@ def test_uploader_runs_even_when_scraper_has_failures():
          patch("scripts.sync_pyqs.drive_uploader.run", return_value={"uploaded": 2, "skipped": 0, "failed": 0}) as mock_uploader:
         main()
         mock_uploader.assert_called_once()
+
+
+def test_uploader_still_runs_when_scraper_raises():
+    """If scraper raises RuntimeError (e.g. login failure), uploader still runs."""
+    with patch("scripts.sync_pyqs.pyq_scraper.run", side_effect=RuntimeError("Login failed")), \
+         patch("scripts.sync_pyqs.drive_uploader.run", return_value={"uploaded": 0, "skipped": 0, "failed": 0}) as mock_uploader:
+        exit_code = main()
+        mock_uploader.assert_called_once()
+        assert exit_code == 1  # scraper failure counts as failed > 0

@@ -8,17 +8,18 @@ import logging
 import sys
 from scripts import pyq_scraper, drive_uploader
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 
 def main() -> int:
     logger.info("=== PYQ Sync started ===")
 
-    scraper_counts = pyq_scraper.run()
+    try:
+        scraper_counts = pyq_scraper.run()
+    except RuntimeError as e:
+        logger.error("Scraper failed: %s", e)
+        scraper_counts = {"downloaded": 0, "skipped": 0, "failed": 1}
+
     print(
         f"\nScraper:  {scraper_counts['downloaded']} downloaded, "
         f"{scraper_counts['skipped']} skipped, "
@@ -40,4 +41,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
     sys.exit(main())
