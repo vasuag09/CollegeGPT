@@ -48,6 +48,22 @@ def test_folder_id_cache_prevents_duplicate_api_calls(mock_service):
     assert mock_service.files.return_value.list.call_count == 1
 
 
+def test_same_folder_name_different_parent_creates_separate_entries(mock_service):
+    """Same folder name under different parents must be distinct cache entries."""
+    mock_service.files.return_value.list.return_value.execute.return_value = {
+        "files": [{"id": "folder-under-2023", "name": "Semester I"}]
+    }
+    get_or_create_folder(mock_service, "Semester I", parent_id="parent-2023")
+
+    mock_service.files.return_value.list.return_value.execute.return_value = {
+        "files": [{"id": "folder-under-2024", "name": "Semester I"}]
+    }
+    get_or_create_folder(mock_service, "Semester I", parent_id="parent-2024")
+
+    # Two distinct parent_ids = two separate API list calls (not cached from first)
+    assert mock_service.files.return_value.list.call_count == 2
+
+
 def test_file_already_in_drive_is_skipped(mock_service, tmp_path):
     mock_service.files.return_value.list.return_value.execute.return_value = {
         "files": [{"id": "existing-file-id", "name": "exam.pdf"}]

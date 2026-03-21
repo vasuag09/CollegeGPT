@@ -62,7 +62,8 @@ def get_or_create_folder(service, name: str, parent_id: Optional[str]) -> str:
     if cache_key in _folder_cache:
         return _folder_cache[cache_key]
 
-    query = f"name='{name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    safe_name = name.replace("'", "\\'")
+    query = f"name='{safe_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
     if parent_id:
         query += f" and '{parent_id}' in parents"
 
@@ -91,7 +92,8 @@ def upload_file(service, local_path: Path, folder_id: str) -> str:
     Returns 'uploaded', 'skipped', or 'failed'.
     """
     filename = local_path.name
-    query = f"name='{filename}' and '{folder_id}' in parents and trashed=false"
+    safe_filename = filename.replace("'", "\\'")
+    query = f"name='{safe_filename}' and '{folder_id}' in parents and trashed=false"
     result = service.files().list(q=query, fields="files(id)").execute()
     if result.get("files"):
         logger.info("Skipping (exists in Drive): %s", filename)
