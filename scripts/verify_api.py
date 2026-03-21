@@ -6,13 +6,6 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
-# Force .env loading from project root
-from dotenv import load_dotenv
-load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
-
-from backend.embeddings import embed_query, embed_texts
-from backend.llm_client import generate
-
 def test_embeddings():
     print("--- Testing Embeddings ---")
     try:
@@ -39,9 +32,16 @@ def test_llm():
         return False
 
 if __name__ == "__main__":
+    # Force .env loading from project root
+    from dotenv import load_dotenv
+    load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
+
+    from backend.embeddings import embed_query, embed_texts
+    from backend.llm_client import generate
+
     emb_ok = test_embeddings()
     llm_ok = test_llm()
-    
+
     if emb_ok and llm_ok:
         print("\n✅ API Verification PASSED!")
         sys.exit(0)

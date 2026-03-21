@@ -26,3 +26,9 @@ streamlit==1.41.1
 # Testing
 pytest==8.3.5
 pytest-asyncio==0.24.0
+
+# PYQ Scraper
+playwright==1.49.1
+google-api-python-client==2.154.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.1
