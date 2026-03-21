@@ -17,6 +17,17 @@ import logging
 import re
 from collections.abc import Generator
 
+_GREETING_PATTERNS = re.compile(
+    r"^\s*(hi|hello|hey|howdy|sup|yo|greetings|good\s*(morning|afternoon|evening|day)|what'?s\s*up)\W*\s*$",
+    re.IGNORECASE,
+)
+
+_GREETING_RESPONSE = (
+    "Hello! I'm NM-GPT, your NMIMS campus assistant. "
+    "Ask me anything about attendance policies, exam rules, academic calendar, "
+    "UFM penalties, or any other information from official university documents."
+)
+
 import numpy as np
 import faiss
 
@@ -104,14 +115,12 @@ class RAGPipeline:
     def _build_prompt(self, context: str, question: str) -> str:
         """Build the full prompt from system prompt + retrieval template.
 
-        Uses string replacement (not .format()) to prevent prompt injection
-        from user-controlled context or question strings.
+        Uses str.partition() to prevent cross-substitution: context containing
+        {question} or question containing {context} are both inserted verbatim.
         """
-        retrieval_prompt = (
-            self.retrieval_prompt_template
-            .replace("{context}", context)
-            .replace("{question}", question)
-        )
+        before_ctx, _, after_ctx = self.retrieval_prompt_template.partition("{context}")
+        before_q, _, after_q = after_ctx.partition("{question}")
+        retrieval_prompt = before_ctx + context + before_q + question + after_q
         return f"{self.system_prompt}\n\n{retrieval_prompt}"
 
     def _extract_page_citations(self, answer: str, chunks: list[dict]) -> list[int]:
@@ -159,6 +168,14 @@ class RAGPipeline:
             "confidence": float
           }
         """
+        if _GREETING_PATTERNS.match(question):
+            return {
+                "answer": _GREETING_RESPONSE,
+                "citations": [],
+                "pages": [],
+                "confidence": 1.0,
+            }
+
         chunks = self.retrieve(question, top_k=top_k)
 
         if not chunks:
@@ -208,6 +225,12 @@ class RAGPipeline:
           {"type": "done"}                          – signals completion
           {"type": "error", "message": "..."}       – on failure
         """
+        if _GREETING_PATTERNS.match(question):
+            yield {"type": "token", "content": _GREETING_RESPONSE}
+            yield {"type": "citations", "citations": [], "pages": [], "confidence": 1.0}
+            yield {"type": "done"}
+            return
+
         chunks = self.retrieve(question, top_k=top_k)
 
         if not chunks:

@@ -39,6 +39,13 @@ The prototype is complete and demo-ready. The following components are built and
 - `/query/stream` — SSE streaming RAG query (primary endpoint used by frontend)
 - `backend/app.py`, `backend/rag_pipeline.py`, `backend/embeddings.py`, `backend/llm_client.py`, `backend/config.py`
 - Prompts stored as plain text files in `backend/prompts/`
+- Greeting detection — common greetings bypass the LLM and return an instant response
+
+**Tests**
+- Backend: 129 pytest tests covering config, embeddings, llm_client, rag_pipeline, API endpoints, rate limiting
+- Frontend: 81 Vitest tests covering ChatInput, CitationBlock, MessageBubble, EmptyState, ChatContainer
+- Run backend: `pytest` from project root
+- Run frontend: `npm run test:run` from `landing/`
 
 **Ingestion Pipeline** (multi-document, run after adding new files to `pdfs/`)
 - `scripts/extract_pdf.py` — all PDFs + TXT files in `pdfs/` → `data/pages.json` (each page tagged with `source_doc`)
@@ -73,6 +80,8 @@ The prototype is complete and demo-ready. The following components are built and
 | PDF Parsing | PyMuPDF (fitz) |
 | Text Splitting | LangChain RecursiveCharacterTextSplitter |
 | Config | python-dotenv, centralized in `backend/config.py` |
+| Backend Testing | pytest 8.3.5 + pytest-asyncio |
+| Frontend Testing | Vitest 3 + React Testing Library + jsdom |
 
 ---
 
@@ -260,6 +269,25 @@ index/
   faiss_index.bin      FAISS binary index
   metadata.json        Chunk metadata
 
+tests/                 Backend test suite (pytest)
+  conftest.py          Shared fixtures (client, mock_pipeline, rate limit management)
+  test_config.py       Config values and env override tests
+  test_embeddings.py   Embedding model and API wrapper tests
+  test_llm_client.py   LLM client and streaming tests
+  test_rag_pipeline.py RAG pipeline unit tests (prompt injection, citations, retrieval)
+  test_api.py          FastAPI endpoint tests (health, query, stream, CORS, rate limiting)
+
+landing/__tests__/     Frontend test suite (Vitest)
+  setup.ts             Test environment setup
+  ChatInput.test.tsx
+  CitationBlock.test.tsx
+  MessageBubble.test.tsx
+  EmptyState.test.tsx
+  ChatContainer.test.tsx
+
+pytest.ini             Backend test configuration
+landing/vitest.config.ts  Frontend test configuration
+
 docs/
   architecture.md
   project_explanation.md
@@ -278,7 +306,6 @@ These are known and intentional omissions for the prototype. Do not add complexi
 - No query logging or analytics
 
 **Quality:**
-- Zero test coverage
 - Confidence score is a heuristic, not calibrated
 
 **AI quality:**
@@ -296,8 +323,10 @@ These are known and intentional omissions for the prototype. Do not add complexi
 - 60s timeout on LLM calls (configurable via `LLM_TIMEOUT_SECONDS`)
 - Frontend fetch timeout via AbortController (60s)
 - Citation source field populated from chunk metadata
-- Prompt injection fix: template uses `.replace()` not `.format()`
+- Prompt injection fix: `_build_prompt` uses `str.partition()` — prevents cross-substitution between context and question
 - Citation fallback removed — pages list is empty if LLM doesn't cite
+- Greeting detection in RAG pipeline — common greetings (hi, hello, hey, etc.) return an instant friendly response without hitting the LLM or FAISS
+- Full test suite added: 129 backend tests (pytest) + 81 frontend tests (Vitest)
 
 Full prioritized roadmap: `docs/post_demo_improvements.md`
 

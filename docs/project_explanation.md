@@ -21,7 +21,8 @@
 17. [Setup & Running Instructions](#17-setup--running-instructions)
 18. [Demo Questions & Expected Behavior](#18-demo-questions--expected-behavior)
 19. [Future Expansion Roadmap](#19-future-expansion-roadmap)
-20. [Key Design Decisions](#20-key-design-decisions)
+20. [Test Suite](#20-test-suite)
+21. [Key Design Decisions](#21-key-design-decisions)
 
 ---
 
@@ -1342,15 +1343,15 @@ class RAGPipeline:
     def _build_prompt(self, context: str, question: str) -> str:
         """Build the full prompt from system prompt + retrieval template.
 
-        Uses .replace() instead of .format() to prevent prompt injection:
-        if a user's question contained "{context}", .format() would corrupt
-        the prompt. .replace() always treats the value as a literal string.
+        Uses str.partition() to prevent cross-substitution attacks:
+        - Sequential .replace() calls are vulnerable: if context contains
+          {question}, the second .replace() would substitute it.
+        - partition() splits on the literal placeholder once and joins —
+          neither the context nor the question value is ever scanned again.
         """
-        retrieval_prompt = (
-            self.retrieval_prompt_template
-            .replace("{context}", context)
-            .replace("{question}", question)
-        )
+        before_ctx, _, after_ctx = self.retrieval_prompt_template.partition("{context}")
+        before_q, _, after_q = after_ctx.partition("{question}")
+        retrieval_prompt = before_ctx + context + before_q + question + after_q
         return f"{self.system_prompt}\n\n{retrieval_prompt}"
 
     def _extract_page_citations(self, answer: str, chunks: list[dict]) -> list[int]:
@@ -1399,6 +1400,13 @@ class RAGPipeline:
             "confidence": float
           }
         """
+        # Short-circuit: greetings bypass the LLM and FAISS entirely
+        if _GREETING_PATTERNS.match(question):
+            return {
+                "answer": _GREETING_RESPONSE,
+                "citations": [], "pages": [], "confidence": 1.0,
+            }
+
         chunks = self.retrieve(question, top_k=top_k)
 
         if not chunks:
@@ -2131,7 +2139,48 @@ The modular architecture supports these expansions without major refactoring:
 
 ---
 
-## 20. Key Design Decisions
+## 20. Test Suite
+
+NM-GPT has full automated test coverage across both backend and frontend.
+
+### Backend Tests (pytest)
+
+**Run:** `pytest` from the project root (210 tests total: 129 backend + 81 frontend)
+
+| File | Coverage |
+|------|----------|
+| `tests/test_config.py` | Config values, env var overrides, path types |
+| `tests/test_embeddings.py` | `get_embedding_model`, `embed_query`, `embed_texts`, error handling |
+| `tests/test_llm_client.py` | `get_llm` params, `generate`, `generate_stream` (empty chunk skipping) |
+| `tests/test_rag_pipeline.py` | Prompt injection safety, citation extraction, confidence, retrieve, query, stream event ordering |
+| `tests/test_api.py` | `/health` (503 cases), `/query` (422 validation, 503/500 errors), `/query/stream` (SSE parsing), CORS, rate limiting |
+
+**Key fixture design (`tests/conftest.py`):**
+- `limiter.enabled = False` disables slowapi for all non-rate-limit tests — avoids `request.state.view_rate_limit` errors
+- `@pytest.mark.rate_limit` re-enables the real limiter with cleared storage for rate limit tests
+- `pipeline` fixture bypasses `RAGPipeline.__init__` via `patch.object` to avoid needing real FAISS/metadata files
+
+### Frontend Tests (Vitest + React Testing Library)
+
+**Run:** `npm run test:run` from `landing/`
+
+| File | Coverage |
+|------|----------|
+| `__tests__/ChatInput.test.tsx` | Char limit (500), send button states, Enter key, Shift+Enter, disabled state |
+| `__tests__/CitationBlock.test.tsx` | Page range formatting, source dedup, confidence %, expand/collapse |
+| `__tests__/MessageBubble.test.tsx` | User/AI bubble rendering, error state, retry button, TypingIndicator |
+| `__tests__/EmptyState.test.tsx` | All 6 suggestion cards render, click handlers pass correct prompt text |
+| `__tests__/ChatContainer.test.tsx` | SSE stream processing, token accumulation, error handling, retry, fetch payload |
+
+**Mock strategy:**
+- `framer-motion` — replaced with plain HTML elements (animations don't work in jsdom)
+- `react-markdown` / `remark-gfm` — replaced with simple `<div>` wrappers
+- `CitationBlock` — mocked in MessageBubble tests (tested separately)
+- `fetch` — stubbed with `vi.stubGlobal` using a custom `ReadableStream` SSE helper
+
+---
+
+## 21. Key Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
@@ -2143,7 +2192,8 @@ The modular architecture supports these expansions without major refactoring:
 | **Prompt templates in .txt files** | Non-developers can tweak behavior without touching Python |
 | **Progress saving in index builder** | Graceful handling of API rate limits on free tier |
 | **Heuristic confidence score** | Simple but useful — tells students how sure the system is |
-| **`from __future__ import annotations`** | Python 3.9 compatibility for modern type hints |
+| **`str.partition()` in `_build_prompt`** | Prevents cross-substitution: sequential `.replace()` calls allow context containing `{question}` (or question containing `{context}`) to corrupt the prompt |
+| **Greeting detection before RAG** | Saves a Gemini API call and FAISS search for trivial inputs; responds instantly |
 
 ---
 
