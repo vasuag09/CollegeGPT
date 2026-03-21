@@ -5,7 +5,7 @@ Playwright sync API. Run via sync_pyqs.py or standalone.
 import logging
 import time
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 
@@ -42,17 +42,18 @@ def _filename_from_url(url: str) -> str:
     """
     Extract a usable filename from a URL.
     Handles both clean paths (/files/exam.pdf) and query-string URLs (?file=exam.pdf).
+    URL-decodes the result to handle encoded characters.
     """
     parsed = urlparse(url)
     # Try query parameter named 'file' or 'filename' first
     for key in ("file", "filename", "name"):
         val = parse_qs(parsed.query).get(key, [None])[0]
         if val:
-            return val.split("/")[-1]
+            return unquote(val.split("/")[-1])
     # Fall back to last path segment
     segment = parsed.path.split("/")[-1]
     if segment and "." in segment:
-        return segment
+        return unquote(segment)
     return ""
 
 
@@ -98,6 +99,7 @@ def _login(page) -> None:
 
 
 def _navigate_to_question_papers(page) -> None:
+    """Navigate to Library → Question Papers and wait for the list to load."""
     page.click(SELECTOR_LIBRARY_LINK)
     page.click(SELECTOR_QP_LINK)
     page.wait_for_selector(SELECTOR_QP_ROW, timeout=15_000)
@@ -109,11 +111,38 @@ def _scrape_page(page, counts: dict) -> None:
     rows = page.query_selector_all(SELECTOR_QP_ROW)
     for row in rows:
         try:
-            subject  = _sanitize(row.query_selector(SELECTOR_SUBJECT).inner_text())
-            year     = _sanitize(row.query_selector(SELECTOR_YEAR).inner_text())
-            semester = _sanitize(row.query_selector(SELECTOR_SEMESTER).inner_text())
-            dl_el    = row.query_selector(SELECTOR_DOWNLOAD)
-            url      = dl_el.get_attribute("href")
+            subject_el = row.query_selector(SELECTOR_SUBJECT)
+            if subject_el is None:
+                logger.warning("Subject element not found in row — skipping")
+                counts["failed"] += 1
+                continue
+            subject = _sanitize(subject_el.inner_text())
+
+            year_el = row.query_selector(SELECTOR_YEAR)
+            if year_el is None:
+                logger.warning("Year element not found in row — skipping")
+                counts["failed"] += 1
+                continue
+            year = _sanitize(year_el.inner_text())
+
+            semester_el = row.query_selector(SELECTOR_SEMESTER)
+            if semester_el is None:
+                logger.warning("Semester element not found in row — skipping")
+                counts["failed"] += 1
+                continue
+            semester = _sanitize(semester_el.inner_text())
+
+            dl_el = row.query_selector(SELECTOR_DOWNLOAD)
+            if dl_el is None:
+                logger.warning("Download element not found in row — skipping")
+                counts["failed"] += 1
+                continue
+            url = dl_el.get_attribute("href")
+
+            if not url:
+                logger.warning("No href found on download element — may be JS-triggered (row skipped)")
+                counts["failed"] += 1
+                continue
 
             filename = _filename_from_url(url) or f"{subject}_{year}_{semester}.pdf"
             if not filename.endswith(".pdf"):
@@ -161,8 +190,12 @@ def run() -> dict:
                 _scrape_page(page, counts)
             except PlaywrightTimeout:
                 # Page may have expired — re-login once, then retry this page
-                _relogin_and_navigate(page)
-                _scrape_page(page, counts)
+                try:
+                    _relogin_and_navigate(page)
+                    _scrape_page(page, counts)
+                except (PlaywrightTimeout, RuntimeError) as e:
+                    logger.error("Session recovery failed: %s", e)
+                    raise
 
             if SELECTOR_NEXT_PAGE is None:
                 break
