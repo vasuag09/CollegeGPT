@@ -1,13 +1,21 @@
 """
 SVKM Portal → local PYQ downloader.
 Playwright sync API. Run via sync_pyqs.py or standalone.
+
+Portal structure (recursive folder tree):
+  QUESTIONS PAPERS / <Program> / <Year> / <Semester> / <Subject> / *.pdf
+
+Folder links use:   a[href*='viewLibrary?folderPath=']
+File links use:     a[href*='downloadFile']
+Download URL:       https://portal.svkm.ac.in/MPSTME-NM-M/downloadFile?libraryId=<N>
 """
 import logging
+import re
 import time
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs, unquote
+from typing import Optional
 
-from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+from playwright.sync_api import sync_playwright, Page, TimeoutError as PlaywrightTimeout
 
 from backend.config import (
     SVKM_PORTAL_URL,
@@ -18,194 +26,246 @@ from backend.config import (
 
 logger = logging.getLogger(__name__)
 
-# ── Selectors — fill in from Task 2 inspection ────────────────
-# Set SELECTOR_NEXT_PAGE = None if there is no pagination (not the placeholder string).
-SELECTOR_POST_LOGIN   = "<SELECTOR_POST_LOGIN>"
-SELECTOR_LIBRARY_LINK = "<SELECTOR_LIBRARY_LINK>"
-SELECTOR_QP_LINK      = "<SELECTOR_QP_LINK>"
-SELECTOR_QP_ROW       = "<SELECTOR_QP_ROW>"
-SELECTOR_SUBJECT      = "<SELECTOR_SUBJECT>"
-SELECTOR_YEAR         = "<SELECTOR_YEAR>"
-SELECTOR_SEMESTER     = "<SELECTOR_SEMESTER>"
-SELECTOR_DOWNLOAD     = "<SELECTOR_DOWNLOAD>"
-SELECTOR_NEXT_PAGE    = None   # set to selector string if paginated, else None
+BASE_URL = "https://portal.svkm.ac.in/MPSTME-NM-M"
+
+# Root URL for the Question Papers library folder.
+# parentId=1 is the QUESTIONS PAPERS root (B TECH uses parentId=2 as its own ID).
+QP_ROOT_URL = (
+    f"{BASE_URL}/viewLibrary"
+    "?folderPath=%2fdata%2fMPSTME-NM-M%2flibrary%2fQUESTIONS+PAPERS+&parentId=1"
+)
 
 _MAX_RETRIES = 3
+_INVALID_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+# ── Filters ────────────────────────────────────────────────────────────────────
+# depth 0 = program folders (B TECH, MBA TECH, MCA, …)
+# depth 1 = branch or year folders within a program
+#
+# Only these programs are scraped.
+ALLOWED_PROGRAMS = {"B TECH", "MBA TECH"}
+
+# Per-program branch keywords (case-insensitive substring match).
+# "IT" is handled separately via exact word match (too short for substring).
+# Year folders ("1ST YEAR", "2ND YEAR") are always allowed at depth 1.
+_BRANCH_KEYWORDS_BY_PROGRAM: dict[str, set] = {
+    "B TECH": {
+        # Computer Engineering
+        "CE", "COMPUTER ENG", "COMPUTER ENGINEERING",
+        # Computer Science
+        "CS", "COMPUTER SCIENCE",
+        # Information Technology
+        "INFORMATION TECH", "INFORMATION TECHNOLOGY",
+        # AI & ML
+        "AIML", "AI & ML", "AI AND ML", "ARTIFICIAL INTELLIGENCE",
+    },
+    "MBA TECH": {
+        # Civil Engineering
+        "CE", "CIVIL",
+    },
+}
+
+# Fallback for any program not listed above (allow all branches)
+_DEFAULT_BRANCH_KEYWORDS = None  # type: Optional[set]
+
+# "IT" exact word match — only applies to B TECH
+_IT_EXACT = {"IT"}
+
+
+def _is_allowed(name: str, depth: int, program: str = "", branch_override: Optional[set] = None, allowed_programs: Optional[set] = None) -> bool:
+    """Return True if this folder should be recursed into.
+
+    branch_override: if provided, replaces _BRANCH_KEYWORDS_BY_PROGRAM at depth 1
+    for B TECH (lets each parallel process target one branch).
+    allowed_programs: overrides the global ALLOWED_PROGRAMS set.
+    """
+    upper = name.upper()
+    if depth == 0:
+        programs = allowed_programs if allowed_programs is not None else ALLOWED_PROGRAMS
+        return upper in {p.upper() for p in programs}
+    if depth == 1:
+        # Always allow year folders (e.g. "1ST YEAR", "2ND YEAR")
+        if "YEAR" in upper:
+            return True
+        prog_key = program.upper()
+        if branch_override is not None and prog_key == "B TECH":
+            keywords = branch_override
+        else:
+            keywords = next(
+                (v for k, v in _BRANCH_KEYWORDS_BY_PROGRAM.items() if k.upper() == prog_key),
+                _DEFAULT_BRANCH_KEYWORDS,
+            )
+        if keywords is None:
+            return True  # unknown program → allow all branches
+        if any(kw in upper for kw in keywords):
+            return True
+        # Exact word match for "IT" (B TECH only)
+        if prog_key == "B TECH" and set(upper.split()) & _IT_EXACT:
+            return True
+        return False
+    return True  # depth ≥ 2: no filtering
 
 
 def _sanitize(name: str) -> str:
-    """Make a string safe for use as a directory name."""
-    return "".join(c if c.isalnum() or c in " -_()" else "_" for c in name).strip()
+    """Strip characters that are invalid in file/directory names."""
+    return _INVALID_CHARS.sub("_", name.strip()).strip()
 
 
-def _filename_from_url(url: str) -> str:
-    """
-    Extract a usable filename from a URL.
-    Handles both clean paths (/files/exam.pdf) and query-string URLs (?file=exam.pdf).
-    URL-decodes the result to handle encoded characters.
-    """
-    parsed = urlparse(url)
-    # Try query parameter named 'file' or 'filename' first
-    for key in ("file", "filename", "name"):
-        val = parse_qs(parsed.query).get(key, [None])[0]
-        if val:
-            return unquote(val.split("/")[-1])
-    # Fall back to last path segment
-    segment = parsed.path.split("/")[-1]
-    if segment and "." in segment:
-        return unquote(segment)
-    return ""
+def _login(page: Page) -> None:
+    """Log in to the SVKM portal. Raises RuntimeError on failure — do NOT retry."""
+    if not SVKM_USERNAME or not SVKM_PASSWORD:
+        raise RuntimeError("SVKM_USERNAME and SVKM_PASSWORD must be set in .env")
+
+    page.goto(SVKM_PORTAL_URL, wait_until="domcontentloaded")
+    page.wait_for_selector("input[name='username'], input[type='text']", timeout=10_000)
+
+    username_field = (
+        page.query_selector("input[name='username']")
+        or page.query_selector("input[type='text']")
+    )
+    password_field = (
+        page.query_selector("input[name='password']")
+        or page.query_selector("input[type='password']")
+    )
+    if not username_field or not password_field:
+        raise RuntimeError("Login form not found — portal structure may have changed.")
+
+    username_field.fill(SVKM_USERNAME)
+    password_field.fill(SVKM_PASSWORD)
+    page.keyboard.press("Enter")
+    try:
+        page.wait_for_url("**/homepage**", timeout=20_000)
+    except PlaywrightTimeout:
+        raise RuntimeError(
+            "Login failed — portal did not redirect to homepage. "
+            "Check SVKM_USERNAME and SVKM_PASSWORD in .env. "
+            "Do NOT retry automatically to avoid account lockout."
+        )
+    logger.info("Login successful. URL: %s", page.url)
 
 
-def _download_with_retry(page, url: str, dest: Path) -> bool:
-    """
-    Download a file using page.request (carries auth cookies).
-    Retries up to _MAX_RETRIES times with exponential backoff.
-    Returns True on success, False on failure.
-    """
+def _download_file(page: Page, url: str, dest: Path, counts: dict, on_downloaded=None, skip_paths: set = None) -> None:
+    """Download a single file using the authenticated session (page.request carries cookies)."""
+    rel = str(dest.relative_to(PYQ_DIR))
+    if skip_paths and rel in skip_paths:
+        logger.info("Skipped (already uploaded): %s", rel)
+        counts["skipped"] += 1
+        return
+    if dest.exists():
+        logger.info("Skipped (exists locally): %s", rel)
+        counts["skipped"] += 1
+        if on_downloaded:
+            on_downloaded(dest)
+        return
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
             response = page.request.get(url, timeout=60_000)
             if response.status != 200:
                 logger.warning("HTTP %d for %s (attempt %d)", response.status, url, attempt)
             else:
-                dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(response.body())
-                return True
-        except Exception as e:
-            logger.warning("Download error (attempt %d/%d): %s", attempt, _MAX_RETRIES, e)
+                logger.info("Downloaded: %s", dest.relative_to(PYQ_DIR))
+                counts["downloaded"] += 1
+                if on_downloaded:
+                    on_downloaded(dest)
+                return
+        except Exception as exc:
+            logger.warning("Download error (attempt %d/%d): %s", attempt, _MAX_RETRIES, exc)
         if attempt < _MAX_RETRIES:
             time.sleep(2 ** attempt)
-    return False
+
+    logger.warning("Failed after %d attempts: %s", _MAX_RETRIES, url)
+    counts["failed"] += 1
 
 
-def _login(page) -> None:
-    """Log in to the SVKM portal. Raises RuntimeError on failure — do NOT retry."""
-    if not SVKM_USERNAME or not SVKM_PASSWORD:
-        raise RuntimeError("SVKM_USERNAME and SVKM_PASSWORD must be set in .env")
-    page.goto(SVKM_PORTAL_URL)
-    page.fill("input[name='username']", SVKM_USERNAME)
-    page.fill("input[name='password']", SVKM_PASSWORD)
-    page.keyboard.press("Enter")
-    try:
-        page.wait_for_selector(SELECTOR_POST_LOGIN, timeout=10_000)
-    except PlaywrightTimeout:
-        raise RuntimeError(
-            "Login failed — post-login element not found. "
-            "Check SVKM_USERNAME/SVKM_PASSWORD in .env. "
-            "Do NOT retry — repeated failures may lock the account."
-        )
-    logger.info("Login successful")
+def _scrape_folder(page: Page, folder_url: str, local_dir: Path, counts: dict, depth: int = 0, on_downloaded=None, skip_paths: set = None, program: str = "", branch_override: Optional[set] = None, allowed_programs: Optional[set] = None) -> None:
+    """
+    Recursively scrape a folder page.
+    - Rows with viewLibrary links → sub-folders (recurse)
+    - Rows with downloadFile links → files (download)
+    """
+    logger.info("Visiting folder: %s", folder_url)
 
-
-def _navigate_to_question_papers(page) -> None:
-    """Navigate to Library → Question Papers and wait for the list to load."""
-    page.click(SELECTOR_LIBRARY_LINK)
-    page.click(SELECTOR_QP_LINK)
-    page.wait_for_selector(SELECTOR_QP_ROW, timeout=15_000)
-    logger.info("Question Papers page loaded")
-
-
-def _scrape_page(page, counts: dict) -> None:
-    """Scrape all rows on the current question papers page."""
-    rows = page.query_selector_all(SELECTOR_QP_ROW)
-    for row in rows:
+    for attempt in range(1, _MAX_RETRIES + 1):
         try:
-            subject_el = row.query_selector(SELECTOR_SUBJECT)
-            if subject_el is None:
-                logger.warning("Subject element not found in row — skipping")
+            page.goto(folder_url, timeout=30_000, wait_until="domcontentloaded")
+            # Wait for the table to appear — much faster than networkidle
+            page.wait_for_selector("table", timeout=10_000)
+            break
+        except Exception as exc:
+            if attempt == _MAX_RETRIES:
+                logger.warning("Could not load folder after %d attempts: %s — skipping", _MAX_RETRIES, exc)
                 counts["failed"] += 1
-                continue
-            subject = _sanitize(subject_el.inner_text())
+                return
+            time.sleep(2 ** attempt)
 
-            year_el = row.query_selector(SELECTOR_YEAR)
-            if year_el is None:
-                logger.warning("Year element not found in row — skipping")
-                counts["failed"] += 1
-                continue
-            year = _sanitize(year_el.inner_text())
+    # Sub-folders: table cells containing viewLibrary links
+    folder_links = page.eval_on_selector_all(
+        "table tr td a[href*='viewLibrary?folderPath=']",
+        "els => els.map(e => ({text: e.innerText.trim(), href: e.href}))",
+    )
 
-            semester_el = row.query_selector(SELECTOR_SEMESTER)
-            if semester_el is None:
-                logger.warning("Semester element not found in row — skipping")
-                counts["failed"] += 1
-                continue
-            semester = _sanitize(semester_el.inner_text())
+    # Files: table cells containing downloadFile links
+    file_links = page.eval_on_selector_all(
+        "table tr td a[href*='downloadFile']",
+        "els => els.map(e => ({text: e.innerText.trim(), href: e.href}))",
+    )
 
-            dl_el = row.query_selector(SELECTOR_DOWNLOAD)
-            if dl_el is None:
-                logger.warning("Download element not found in row — skipping")
-                counts["failed"] += 1
-                continue
-            url = dl_el.get_attribute("href")
+    for folder in folder_links:
+        name = _sanitize(folder["text"])
+        if not name:
+            continue
+        # At depth 0 the folder name is the program; pass it down for branch filtering
+        current_program = name if depth == 0 else program
+        if not _is_allowed(name, depth, program, branch_override, allowed_programs):
+            logger.info("Skipping (filtered): %s", name)
+            continue
+        _scrape_folder(page, folder["href"], local_dir / name, counts, depth + 1, on_downloaded, skip_paths, current_program, branch_override, allowed_programs)
 
-            if not url:
-                logger.warning("No href found on download element — may be JS-triggered (row skipped)")
-                counts["failed"] += 1
-                continue
-
-            filename = _filename_from_url(url) or f"{subject}_{year}_{semester}.pdf"
-            if not filename.endswith(".pdf"):
-                filename += ".pdf"
-            dest = PYQ_DIR / subject / year / semester / filename
-
-            if dest.exists():
-                logger.info("Skipping (exists): %s", dest.relative_to(PYQ_DIR))
-                counts["skipped"] += 1
-                continue
-
-            logger.info("Downloading: %s", dest.relative_to(PYQ_DIR))
-            ok = _download_with_retry(page, url, dest)
-            counts["downloaded" if ok else "failed"] += 1
-
-        except Exception as e:
-            logger.warning("Failed to process row: %s", e)
-            counts["failed"] += 1
+    for file_info in file_links:
+        filename = _sanitize(file_info["text"])
+        if not filename:
+            continue
+        if not filename.lower().endswith(".pdf"):
+            filename += ".pdf"
+        _download_file(page, file_info["href"], local_dir / filename, counts, on_downloaded, skip_paths)
 
 
-def _relogin_and_navigate(page) -> None:
-    """Re-login after session expiry. Raises RuntimeError if re-login fails."""
-    logger.warning("Session may have expired — attempting re-login")
-    _login(page)   # raises RuntimeError on auth failure — do not catch
-    _navigate_to_question_papers(page)
-
-
-def run() -> dict:
+def run(on_downloaded=None, skip_paths: set = None, branch_override: Optional[set] = None, only_programs: Optional[set] = None) -> dict:
     """
     Main entry point.
     Returns {"downloaded": int, "skipped": int, "failed": int}.
     Raises RuntimeError on login failure (caller must not retry).
+    branch_override: if provided, restricts B TECH scraping to folders matching
+    these keywords at depth 1 (used to parallelise across branches).
+    only_programs: if provided, overrides ALLOWED_PROGRAMS for this run.
     """
     counts = {"downloaded": 0, "skipped": 0, "failed": 0}
+    effective_programs = only_programs if only_programs is not None else ALLOWED_PROGRAMS
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-
-        _login(page)
-        _navigate_to_question_papers(page)
-
-        while True:
-            try:
-                _scrape_page(page, counts)
-            except PlaywrightTimeout:
-                # Page may have expired — re-login once, then retry this page
-                try:
-                    _relogin_and_navigate(page)
-                    _scrape_page(page, counts)
-                except (PlaywrightTimeout, RuntimeError) as e:
-                    logger.error("Session recovery failed: %s", e)
-                    raise
-
-            if SELECTOR_NEXT_PAGE is None:
-                break
-            next_btn = page.query_selector(SELECTOR_NEXT_PAGE)
-            if not next_btn or not next_btn.is_visible():
-                break
-            next_btn.click()
-            page.wait_for_selector(SELECTOR_QP_ROW, timeout=10_000)
-
-        browser.close()
+        browser = p.chromium.launch(
+            headless=False,  # portal detects headless; run headed
+            args=["--disable-blink-features=AutomationControlled"],
+        )
+        context = browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            viewport={"width": 1280, "height": 800},
+        )
+        page = context.new_page()
+        try:
+            _login(page)
+            _scrape_folder(page, QP_ROOT_URL, PYQ_DIR, counts, on_downloaded=on_downloaded, skip_paths=skip_paths, branch_override=branch_override, allowed_programs=effective_programs)
+        finally:
+            context.close()
+            browser.close()
 
     logger.info(
         "Scraper done — downloaded: %d, skipped: %d, failed: %d",
