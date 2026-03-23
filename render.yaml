@@ -1,0 +1,31 @@
+services:
+  # ── Backend: FastAPI RAG server ──────────────────────────────────────────────
+  - type: web
+    name: nmgpt-api
+    runtime: python
+    buildCommand: pip install -r requirements-deploy.txt
+    startCommand: uvicorn backend.app:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false          # set manually in Render dashboard
+      - key: ALLOWED_ORIGINS
+        value: https://nmgpt.onrender.com
+      - key: LLM_TIMEOUT_SECONDS
+        value: "60"
+      - key: GRPC_DNS_RESOLVER
+        value: native
+
+  # ── Frontend: Next.js ────────────────────────────────────────────────────────
+  - type: web
+    name: nmgpt
+    runtime: node
+    rootDir: landing
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://nmgpt-api.onrender.com
+      - key: NODE_VERSION
+        value: "20"
