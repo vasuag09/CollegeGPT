@@ -43,6 +43,11 @@ PAPERS_REGISTRY_PATH = DATA_DIR / "question_papers.json"
 # ── API Keys ─────────────────────────────────────────────────
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 
+# ── Supabase (query logging + admin dashboard) ────────────────
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+
 # ── Model Settings ───────────────────────────────────────────
 EMBEDDING_MODEL = "models/gemini-embedding-001"
 LLM_MODEL = "gemini-2.5-flash"
