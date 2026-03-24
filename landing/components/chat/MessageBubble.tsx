@@ -21,6 +21,8 @@ interface MessageBubbleProps {
   confidence?: number;
   isError?: boolean;
   onRetry?: () => void;
+  suggestedFollowUps?: string[];
+  onSuggestionClick?: (q: string) => void;
 }
 
 export default function MessageBubble({
@@ -31,6 +33,8 @@ export default function MessageBubble({
   confidence,
   isError,
   onRetry,
+  suggestedFollowUps,
+  onSuggestionClick,
 }: MessageBubbleProps) {
   const isUser = role === "user";
 
@@ -99,6 +103,21 @@ export default function MessageBubble({
                 pages={pages || []}
                 confidence={confidence || 0}
               />
+            </div>
+          )}
+
+          {/* Follow-up suggestions */}
+          {!isUser && !isError && suggestedFollowUps && suggestedFollowUps.length > 0 && onSuggestionClick && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {suggestedFollowUps.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => onSuggestionClick(q)}
+                  className="text-xs px-3 py-1.5 rounded-full border border-primary/25 bg-primary/5 text-primary hover:bg-primary/15 hover:border-primary/50 transition-all duration-200"
+                >
+                  {q}
+                </button>
+              ))}
             </div>
           )}
         </div>

@@ -24,6 +24,38 @@ interface Message {
   confidence?: number;
   isError?: boolean;
   isStreaming?: boolean;
+  suggestedFollowUps?: string[];
+}
+
+// ── Follow-up suggestions ────────────────────────────────────
+
+const TOPIC_FOLLOW_UPS: Array<{ keywords: string[]; suggestions: string[] }> = [
+  { keywords: ["attendance", "absent", "condonation", "75"],
+    suggestions: ["Can I get attendance condonation for medical reasons?", "What happens if my attendance drops below 75%?"] },
+  { keywords: ["exam", "tee", "hall", "admit", "paper"],
+    suggestions: ["What documents do I need to carry to the exam hall?", "Can I apply for revaluation of my answer sheet?"] },
+  { keywords: ["ufm", "unfair", "malpractice", "cheat", "penalty", "offence"],
+    suggestions: ["What are the penalties for UFM offences?", "Is there an appeal process for UFM decisions?"] },
+  { keywords: ["fee", "fees", "payment", "scholarship", "refund"],
+    suggestions: ["What is the fee refund policy?", "Are there any scholarships available?"] },
+  { keywords: ["backlog", "ktkt", "fail", "grace", "pass"],
+    suggestions: ["What is the grace marks policy?", "How many attempts are allowed for backlog subjects?"] },
+  { keywords: ["revaluation", "reassessment", "marks", "result", "scorecard"],
+    suggestions: ["How do I apply for revaluation?", "What is the deadline for revaluation applications?"] },
+  { keywords: ["leave", "medical", "sick", "certificate", "doctor"],
+    suggestions: ["What documents are needed for a medical leave application?", "Does medical leave count towards attendance?"] },
+  { keywords: ["hostel", "accommodation", "room", "mess"],
+    suggestions: ["What are the hostel rules and regulations?", "How do I apply for hostel accommodation?"] },
+];
+
+function generateFollowUps(question: string): string[] {
+  const q = question.toLowerCase();
+  for (const entry of TOPIC_FOLLOW_UPS) {
+    if (entry.keywords.some((kw) => q.includes(kw))) {
+      return entry.suggestions.slice(0, 2);
+    }
+  }
+  return [];
 }
 
 // ── Constants ───────────────────────────────────────────────
@@ -167,14 +199,15 @@ export default function ChatContainer() {
                 )
               );
             } else if (event.type === "done") {
-              // Mark streaming complete
-              setMessages((prev) =>
-                prev.map((msg) =>
+              // Mark streaming complete and attach follow-up suggestions
+              setMessages((msgs) => {
+                const userQ = [...msgs].reverse().find((m) => m.role === "user")?.content ?? "";
+                return msgs.map((msg) =>
                   msg.id === aiMsgId
-                    ? { ...msg, isStreaming: false }
+                    ? { ...msg, isStreaming: false, suggestedFollowUps: generateFollowUps(userQ) }
                     : msg
-                )
-              );
+                );
+              });
             } else if (event.type === "error") {
               // Replace streaming message with error
               setMessages((prev) =>
@@ -296,7 +329,7 @@ export default function ChatContainer() {
         ) : (
           <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
             <div className="space-y-2">
-              {messages.map((msg) => (
+              {messages.map((msg, i) => (
                 <MessageBubble
                   key={msg.id}
                   role={msg.role}
@@ -306,6 +339,12 @@ export default function ChatContainer() {
                   confidence={msg.confidence}
                   isError={msg.isError}
                   onRetry={msg.isError ? handleRetry : undefined}
+                  suggestedFollowUps={
+                    i === messages.length - 1 && !msg.isStreaming
+                      ? msg.suggestedFollowUps
+                      : undefined
+                  }
+                  onSuggestionClick={handlePromptSelect}
                 />
               ))}
 
