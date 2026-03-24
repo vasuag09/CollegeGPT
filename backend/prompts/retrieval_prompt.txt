@@ -1,4 +1,4 @@
-Use the following context from the Student Resource Book (SRB) to answer the student's question. Each context section includes the page number(s) it was found on.
+Use the following context from the Student Resource Book (SRB) to help answer the student's question. If the context contains relevant procedural or policy information, prioritize it. Each context section includes the page number(s) it was found on.
 
 --- CONTEXT START ---
 {context}
@@ -7,9 +7,9 @@ Use the following context from the Student Resource Book (SRB) to answer the stu
 STUDENT'S QUESTION: {question}
 
 INSTRUCTIONS:
-- Answer ONLY based on the context above.
-- Include page citations in your answer using [Page X] format.
-- If the context does not contain enough information to answer, say: "I could not find this information in the Student Resource Book."
+- If the context provides the answer, use it and include page citations using the [Page X] format.
+- If the question is about an NMIMS-specific policy or rule NOT found in the context, say: "I could not find this information in the Student Resource Book."
+- If the question is a general inquiry (not a strict college policy) and the context does not contain the answer, you may answer it normally using your general knowledge.
 - Be concise and clear.
 
 ANSWER:
