@@ -36,11 +36,93 @@ from backend.config import (
     METADATA_PATH,
     PROMPTS_DIR,
     DEFAULT_TOP_K,
+    PAPERS_REGISTRY_PATH,
 )
 from backend.embeddings import embed_query
 from backend.llm_client import generate, generate_stream
 
 logger = logging.getLogger("nmgpt.pipeline")
+
+# ── PYQ detection ─────────────────────────────────────────────
+_PYQ_RE = re.compile(
+    r"\b(pyqs?|previous\s+year|question\s+papers?|past\s+papers?|exam\s+papers?|old\s+papers?)\b",
+    re.IGNORECASE,
+)
+_PYQ_STOPWORDS = frozenset({
+    "do", "you", "have", "any", "the", "a", "an", "for", "of", "in", "and",
+    "or", "is", "are", "what", "where", "can", "i", "me", "get", "find",
+    "show", "list", "please", "want", "need", "looking", "question", "paper",
+    "papers", "pyq", "pyqs", "previous", "year", "past", "exam", "exams", "old",
+})
+
+_papers_cache: list[dict] | None = None
+
+
+def _load_papers() -> list[dict]:
+    global _papers_cache
+    if _papers_cache is not None:
+        return _papers_cache
+    if not PAPERS_REGISTRY_PATH.exists():
+        _papers_cache = []
+        return _papers_cache
+    with open(PAPERS_REGISTRY_PATH, "r", encoding="utf-8") as f:
+        _papers_cache = json.load(f)
+    logger.info("Loaded %d papers from registry", len(_papers_cache))
+    return _papers_cache
+
+
+def _search_papers(question: str) -> list[dict]:
+    """Score papers by keyword overlap with the question. Returns top 20."""
+    tokens = {t.upper() for t in re.findall(r"[a-zA-Z0-9]+", question)
+              if t.lower() not in _PYQ_STOPWORDS and len(t) > 1}
+    if not tokens:
+        return _load_papers()[:20]
+
+    scored = []
+    for paper in _load_papers():
+        target = " ".join(filter(None, [
+            paper.get("subject", ""),
+            paper.get("filename", ""),
+            paper.get("branch", ""),
+        ])).upper()
+        score = sum(1 for t in tokens if t in target)
+        if score > 0:
+            scored.append((score, paper))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [p for _, p in scored[:20]]
+
+
+def _format_pyq_response(question: str, papers: list[dict]) -> str:
+    if not papers:
+        return (
+            "I don't have question papers for that subject yet. "
+            "We're still uploading papers — check back soon, or ask about another subject!"
+        )
+
+    grouped: dict[str, list[dict]] = {}
+    for p in papers:
+        subject = p.get("subject") or p.get("filename", "Unknown")
+        grouped.setdefault(subject, []).append(p)
+
+    lines = ["Here are the question papers I found:\n"]
+    for subject, items in grouped.items():
+        lines.append(f"**{subject}**")
+        for item in items:
+            label_parts = [
+                item.get("year", ""),
+                item.get("semester", ""),
+                item.get("branch", ""),
+            ]
+            label = " · ".join(p for p in label_parts if p) or item.get("filename", "Paper")
+            url = item.get("drive_url", "")
+            if url:
+                lines.append(f"- [{label}]({url})")
+            else:
+                lines.append(f"- {label}")
+        lines.append("")
+
+    return "\n".join(lines).strip()
 
 
 class RAGPipeline:
@@ -176,6 +258,15 @@ class RAGPipeline:
                 "confidence": 1.0,
             }
 
+        if _PYQ_RE.search(question):
+            papers = _search_papers(question)
+            return {
+                "answer": _format_pyq_response(question, papers),
+                "citations": [],
+                "pages": [],
+                "confidence": 1.0,
+            }
+
         chunks = self.retrieve(question, top_k=top_k)
 
         if not chunks:
@@ -227,6 +318,13 @@ class RAGPipeline:
         """
         if _GREETING_PATTERNS.match(question):
             yield {"type": "token", "content": _GREETING_RESPONSE}
+            yield {"type": "citations", "citations": [], "pages": [], "confidence": 1.0}
+            yield {"type": "done"}
+            return
+
+        if _PYQ_RE.search(question):
+            papers = _search_papers(question)
+            yield {"type": "token", "content": _format_pyq_response(question, papers)}
             yield {"type": "citations", "citations": [], "pages": [], "confidence": 1.0}
             yield {"type": "done"}
             return

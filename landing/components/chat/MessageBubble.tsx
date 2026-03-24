@@ -66,7 +66,14 @@ export default function MessageBubble({
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{content}</p>
           ) : (
             <div className="prose-chat text-sm leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ href, children }) => (
+                    <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>
+                  ),
+                }}
+              >{content}</ReactMarkdown>
             </div>
           )}
 
