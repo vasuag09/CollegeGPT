@@ -65,7 +65,7 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Admin-Password"],
 )
 
 # ── Lazy-load the RAG pipeline ──────────────────────────────
