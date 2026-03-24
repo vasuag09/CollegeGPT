@@ -24,7 +24,7 @@ export default function Sidebar({ onNewChat, isOpen = true }: SidebarProps) {
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col bg-surface border-r border-border transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
+      className={`fixed inset-y-0 left-0 z-50 w-56 sm:w-64 flex flex-col bg-surface border-r border-border transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
         isOpen ? "translate-x-0" : "-translate-x-full"
       }`}
     >

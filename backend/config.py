@@ -38,6 +38,7 @@ GOOGLE_TOKEN_PATH = PROJECT_ROOT / "token.json"
 CHUNKS_PATH = DATA_DIR / "chunks.jsonl"
 FAISS_INDEX_PATH = INDEX_DIR / "faiss_index.bin"
 METADATA_PATH = INDEX_DIR / "metadata.json"
+PAPERS_REGISTRY_PATH = DATA_DIR / "question_papers.json"
 
 # ── API Keys ─────────────────────────────────────────────────
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")

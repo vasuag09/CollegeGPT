@@ -63,13 +63,13 @@ const suggestions = [
     ),
   },
   {
-    title: "Grievance Process",
-    prompt: "What is the procedure for filing a grievance or complaint at NMIMS?",
-    source: "SRB",
+    title: "Question Papers",
+    prompt: "Do you have question papers for Calculus?",
+    source: "Drive",
     color: "orange",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
     ),
   },
@@ -165,7 +165,7 @@ export default function EmptyState({ onSelectPrompt }: EmptyStateProps) {
         transition={{ delay: 0.8 }}
         className="mt-8 text-[11px] text-muted/60 text-center"
       >
-        Powered by 6 official NMIMS documents · Answers include page citations
+        Powered by official NMIMS documents · Ask "pyq for &lt;subject&gt;" for question papers
       </motion.p>
     </div>
   );
