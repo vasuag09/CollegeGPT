@@ -69,9 +69,9 @@ describe("EmptyState", () => {
     expect(headings.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders Grievance Process card", () => {
+  it("renders Question Papers card", () => {
     render(<EmptyState onSelectPrompt={onSelectPrompt} />);
-    expect(screen.getByText("Grievance Process")).toBeInTheDocument();
+    expect(screen.getByText("Question Papers")).toBeInTheDocument();
   });
 
   it("renders source badges", () => {
@@ -83,7 +83,7 @@ describe("EmptyState", () => {
 
   it("shows the footer hint about official documents", () => {
     render(<EmptyState onSelectPrompt={onSelectPrompt} />);
-    expect(screen.getByText(/Powered by 6 official NMIMS documents/i)).toBeInTheDocument();
+    expect(screen.getByText(/Powered by official NMIMS documents/i)).toBeInTheDocument();
   });
 
   // ── Interactions ───────────────────────────────────────────
