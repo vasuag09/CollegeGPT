@@ -176,6 +176,8 @@ export default function AdminPage() {
 
   useEffect(() => {
     fetchStats();
+    const interval = setInterval(fetchStats, 30_000);
+    return () => clearInterval(interval);
   }, [fetchStats]);
 
   function handleLogout() {
