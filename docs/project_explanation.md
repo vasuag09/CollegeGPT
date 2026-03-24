@@ -112,8 +112,9 @@ NM-GPT/
 │   ├── __init__.py               # Package marker
 │   ├── config.py                 # Centralized configuration
 │   ├── embeddings.py             # Embedding model wrapper
-│   ├── llm_client.py             # Gemini LLM client with streaming
+│   ├── llm_client.py             # Gemini LLM client with streaming + rate-limit retries
 │   ├── rag_pipeline.py           # Full RAG pipeline
+│   ├── query_logger.py           # Fire-and-forget Supabase query logger
 │   ├── app.py                    # FastAPI web server
 │   └── prompts/                  # LLM prompt templates
 │       ├── system_prompt.txt     # System behavior rules
@@ -123,19 +124,23 @@ NM-GPT/
 │   ├── extract_pdf.py            # pdfs/ (PDFs + TXT) → pages.json
 │   ├── chunk_documents.py        # pages.json → chunks.jsonl
 │   ├── build_index.py            # chunks.jsonl → FAISS index
+│   ├── build_papers_registry.py  # builds data/question_papers.json from Google Drive
 │   └── verify_api.py             # API smoke test
 │
 ├── landing/                      # Next.js frontend (primary)
 │   ├── app/
 │   │   ├── layout.tsx
-│   │   └── page.tsx
+│   │   ├── page.tsx
+│   │   └── admin/
+│   │       ├── layout.tsx        # sessionStorage password gate
+│   │       └── page.tsx          # Admin dashboard — stats, chart, top questions
 │   └── components/
-│       ├── Sidebar.tsx
+│       ├── Sidebar.tsx           # Recent Chats + Knowledge Base
 │       └── chat/
-│           ├── ChatLayout.tsx
-│           ├── ChatContainer.tsx
+│           ├── ChatLayout.tsx    # localStorage conversation management
+│           ├── ChatContainer.tsx # SSE stream reader + follow-up suggestions
 │           ├── ChatInput.tsx
-│           ├── MessageBubble.tsx
+│           ├── MessageBubble.tsx # Follow-up suggestion pills
 │           ├── EmptyState.tsx
 │           └── CitationBlock.tsx
 │
@@ -152,7 +157,8 @@ NM-GPT/
 │
 ├── data/                         # Generated data (gitignored)
 │   ├── pages.json                # Raw extracted pages (with source_doc)
-│   └── chunks.jsonl              # 442 processed chunks
+│   ├── chunks.jsonl              # 442 processed chunks
+│   └── question_papers.json      # PYQ registry — subject → Google Drive link
 │
 ├── index/                        # Vector index (gitignored)
 │   ├── faiss_index.bin           # FAISS binary index (442 vectors, 3072-dim)
@@ -1023,61 +1029,99 @@ L2 distances:        [0.4521, 0.5103, 0.5287, 0.6012, 0.6198]
 
 **File: `backend/llm_client.py`**
 
-A clean wrapper around the Gemini LLM for answer generation.
+A clean wrapper around the Gemini LLM for answer generation. Handles rate limiting and the gemini-2.5-flash thinking model's list content format.
 
 ```python
 """
 NM-GPT – LLM Client
 
-Wraps the Google Generative AI chat model for answer generation.
-Uses LangChain's ChatGoogleGenerativeAI for consistency with the
-rest of the pipeline.
+Provides both synchronous (generate) and streaming (generate_stream)
+interfaces with automatic retry on rate-limit errors and handling for
+gemini-2.5-flash's "thinking" token format.
 """
 
 import logging
+import time
 from collections.abc import Generator
+
 from backend.config import GOOGLE_API_KEY, LLM_MODEL, LLM_TEMPERATURE, LLM_TIMEOUT_SECONDS
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 logger = logging.getLogger("nmgpt.llm")
 
+_RATE_LIMIT_MESSAGE = (
+    "I'm receiving too many requests right now. Please wait a few seconds and try again."
+)
+_RETRY_DELAYS = [2, 5]  # seconds to wait before each retry
+
 
 def get_llm() -> ChatGoogleGenerativeAI:
     """Return a configured LLM instance."""
-    if not GOOGLE_API_KEY:
-        raise ValueError(
-            "GOOGLE_API_KEY is not set. "
-            "Create a .env file with your key (see .env.example)."
-        )
-    return ChatGoogleGenerativeAI(
-        model=LLM_MODEL,
-        google_api_key=GOOGLE_API_KEY,
-        temperature=LLM_TEMPERATURE,
-        transport="rest",
-        timeout=LLM_TIMEOUT_SECONDS,
-    )
+    ...
+
+def _is_rate_limit(exc: Exception) -> bool:
+    msg = str(exc).lower()
+    return "429" in msg or "quota" in msg or "rate" in msg or "resource exhausted" in msg
 
 
 def generate(prompt: str) -> str:
     """Send a prompt to the LLM and return the text response."""
-    logger.info("Invoking LLM (model=%s, timeout=%ds)", LLM_MODEL, LLM_TIMEOUT_SECONDS)
     llm = get_llm()
-    response = llm.invoke(prompt)
-    return str(response.content)
+    for attempt, delay in enumerate([0] + _RETRY_DELAYS):
+        if delay:
+            time.sleep(delay)
+        try:
+            response = llm.invoke(prompt)
+            content = response.content
+            if isinstance(content, list):
+                # gemini-2.5-flash returns thinking tokens as list of dicts
+                return "".join(
+                    part.get("text", "") if isinstance(part, dict) else str(part)
+                    for part in content
+                    if not (isinstance(part, dict) and part.get("type") == "thinking")
+                )
+            return str(content)
+        except Exception as exc:
+            if _is_rate_limit(exc):
+                continue
+            raise
+    return _RATE_LIMIT_MESSAGE
 
 
 def generate_stream(prompt: str) -> Generator[str, None, None]:
     """Stream tokens from the LLM, yielding each chunk as it arrives."""
-    logger.info("Streaming LLM (model=%s, timeout=%ds)", LLM_MODEL, LLM_TIMEOUT_SECONDS)
     llm = get_llm()
-    for chunk in llm.stream(prompt):
-        if chunk.content:
-            yield str(chunk.content)
+    for attempt, delay in enumerate([0] + _RETRY_DELAYS):
+        if delay:
+            time.sleep(delay)
+        try:
+            for chunk in llm.stream(prompt):
+                content = chunk.content
+                if not content:
+                    continue
+                if isinstance(content, list):
+                    text = "".join(
+                        part.get("text", "") if isinstance(part, dict) else str(part)
+                        for part in content
+                        if not (isinstance(part, dict) and part.get("type") == "thinking")
+                    )
+                    if text:
+                        yield text
+                else:
+                    yield str(content)
+            return  # success — stop retry loop
+        except Exception as exc:
+            if _is_rate_limit(exc):
+                continue
+            raise
+    yield _RATE_LIMIT_MESSAGE
 ```
 
 **Design Notes:**
 - **Temperature 0.2** — Low value for precise, factual answers. Not 0.0 because a bit of flexibility helps with natural phrasing.
 - **`timeout=LLM_TIMEOUT_SECONDS`** — Prevents the server from hanging indefinitely if the Gemini API is slow. Configurable via `LLM_TIMEOUT_SECONDS` in `.env` (default 60s).
+- **Rate limit retries** — On HTTP 429 / "quota" / "resource exhausted" errors, the client waits 2s then 5s before giving up and returning a friendly rate limit message instead of crashing.
+- **Thinking model list content** — `gemini-2.5-flash` returns `content` as a list of dicts like `[{"type": "thinking", ...}, {"type": "text", "text": "..."}]`. The client filters out thinking tokens and joins only the text parts.
 - **`ChatGoogleGenerativeAI`** from LangChain — Provides a consistent interface. If we switch to OpenAI later, we only change this file.
 - **Structured logging** — Every LLM call is logged so you can track latency and spot timeouts in production.
 
@@ -1562,6 +1606,7 @@ Endpoints:
   POST /query         – Answer a student question using the RAG pipeline
   POST /query/stream  – Stream answer tokens via Server-Sent Events
   GET  /health        – Health check (verifies index files + API key)
+  GET  /admin/stats   – Query statistics for last 7 days (X-Admin-Password header required)
 """
 
 import json
@@ -1597,7 +1642,7 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,   # from .env, not "*"
     allow_credentials=True,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Admin-Password"],
 )
 
 _pipeline = None
@@ -1666,10 +1711,12 @@ async def query(request: Request, body: QueryRequest):
 
 - **Lazy-loaded pipeline** — The RAG pipeline is initialized on the first request, not at startup. This means the server starts even if the FAISS index hasn't been built yet.
 - **Pydantic models** — `QueryRequest` and `QueryResponse` provide automatic validation. `max_length=500` on `question` matches the frontend character limit.
-- **CORS uses `ALLOWED_ORIGINS`** — Reads from the `ALLOWED_ORIGINS` env var instead of `"*"`. This allows locking down the API to specific frontend origins in production.
+- **CORS uses `ALLOWED_ORIGINS`** — Reads from the `ALLOWED_ORIGINS` env var instead of `"*"`. This allows locking down the API to specific frontend origins in production. `allow_headers` includes `"X-Admin-Password"` so the admin dashboard's preflight passes.
 - **Real `/health`** — Checks that the FAISS index file, metadata file, and API key all exist before returning 200. Returns 503 with an `issues` list if anything is missing — useful for monitoring tools and deployment health checks.
 - **Rate limiting (slowapi)** — 10 requests/minute per IP on query endpoints. Returns 429 on breach. Prevents a single student from burning through the Gemini API quota.
-- **`source: str = ""`** in `Citation` — Backend now passes the source document filename with each citation so the frontend can display which document the answer came from.
+- **`source: str = ""`** in `Citation` — Backend passes the source document filename with each citation so the frontend can display which document the answer came from.
+- **`/admin/stats`** — Reads last 7 days of query logs from Supabase, aggregates totals/hourly/top questions/answer types. Protected by `X-Admin-Password` header checked against the `ADMIN_PASSWORD` env var.
+- **`query_logger.py`** — Each `/query` and `/query/stream` call triggers a fire-and-forget daemon thread that POSTs to Supabase. The thread is non-blocking so logging never adds latency to student responses.
 - **Structured logging** — Every query is logged with truncated question text so you can see what students are asking without excessive log volume.
 
 ### API Reference
@@ -1678,6 +1725,8 @@ async def query(request: Request, body: QueryRequest):
 |----------|--------|-------|--------|
 | `/health` | GET | none | `{"status": "healthy"}` |
 | `/query` | POST | `{"question": str, "top_k": int}` | `{"answer": str, "citations": [...], "pages": [...], "confidence": float}` |
+| `/query/stream` | POST | `{"question": str, "top_k": int}` | SSE stream: `token`, `citations`, `done`, `error` events |
+| `/admin/stats` | GET | header: `X-Admin-Password` | `{"total_queries": int, "avg_confidence": float, "hourly": [...], ...}` |
 
 ### 💡 Example: Testing the API with cURL
 
@@ -1756,7 +1805,19 @@ Sources: 5 chunks
 
 ### Primary: Next.js (`landing/`)
 
-The production-grade student-facing chat UI. Uses SSE streaming via `/query/stream` for real-time token display. Key components: `ChatContainer.tsx` (stream reader), `MessageBubble.tsx` (markdown rendering), `CitationBlock.tsx` (confidence bar + source cards), `EmptyState.tsx` (suggestion chips), `Sidebar.tsx` (conversation history).
+The production-grade student-facing chat UI. Uses SSE streaming via `/query/stream` for real-time token display.
+
+**Key components:**
+- `ChatLayout.tsx` — owns conversation state; persists up to 20 conversations in `localStorage` (`nmgpt_conversations`); restores the active conversation on page reload
+- `ChatContainer.tsx` — SSE stream reader; parses `token`, `citations`, `done`, `error` events; generates keyword-based follow-up suggestion pills after each response
+- `MessageBubble.tsx` — renders user/AI messages with ReactMarkdown; shows follow-up suggestion buttons below AI answers
+- `CitationBlock.tsx` — confidence bar + expandable source excerpt cards with document name
+- `EmptyState.tsx` — suggestion prompt cards on first load; includes a "Question Papers" card
+- `Sidebar.tsx` — "Recent Chats" section (real conversations with relative timestamps) + collapsible "Knowledge Base" section
+
+**Admin dashboard (`landing/app/admin/`):**
+- `layout.tsx` — sessionStorage password gate; validates password against `/admin/stats` on first login; stores the password (not a boolean) so `page.tsx` can reuse it for API calls
+- `page.tsx` — stat cards (total queries, avg confidence, answer types), hourly bar chart (inline SVG, no chart library dependency), top questions list; auto-refreshes every 30s
 
 ### Backup: Streamlit (`streamlit_app/app.py`)
 
@@ -2007,15 +2068,17 @@ st.markdown(f"""
 
 ## 16. End-to-End Data Flow
 
-Here's exactly what happens when a student types "What is the minimum attendance requirement?":
+Here's exactly what happens when a student types "What is the minimum attendance requirement?" in the Next.js UI:
 
 ```
-1. Student types question in Streamlit UI
+1. Student types question in ChatInput.tsx and hits Enter
                     │
-2. Streamlit sends HTTP POST to FastAPI:
-   POST /query {"question": "What is the minimum attendance?", "top_k": 5}
+2. ChatContainer.tsx sends HTTP POST to FastAPI:
+   POST /query/stream {"question": "What is the minimum attendance?", "top_k": 5}
+   (AbortController timeout: 60s)
                     │
-3. FastAPI validates request with Pydantic, calls RAGPipeline.query()
+3. FastAPI validates request with Pydantic, calls RAGPipeline.query_stream()
+   A background daemon thread also logs the query to Supabase via query_logger.py
                     │
 4. RAG Pipeline embeds the question:
    "What is the minimum attendance?" → [0.023, -0.184, 0.551, ...] (3072 floats)
@@ -2043,11 +2106,23 @@ Here's exactly what happens when a student types "What is the minimum attendance
     Regex finds [Page 12] → pages = [12]
     Confidence = 1.0 - (0.31+0.42+0.48+0.52+0.61)/5/2.0 = 0.77
                     │
-11. Response returned to FastAPI → Streamlit → student sees:
-    ✅ Answer text
-    📄 Referenced Pages: 12
-    📊 Confidence: High (77%)
-    📚 View Sources (5 chunks) [expandable]
+10. Citation extraction:
+    Regex finds [Page 12] → pages = [12]
+    Confidence = 1.0 - (0.31+0.42+0.48+0.52+0.61)/5/2.0 = 0.77
+                    │
+11. SSE stream flows back to ChatContainer.tsx:
+    data: {"type":"token","content":"The minimum..."}  ← appended to bubble in real time
+    data: {"type":"token","content":" attendance..."}
+    ...
+    data: {"type":"citations","citations":[...],"pages":[12],"confidence":0.77}
+    data: {"type":"done"}
+                    │
+12. On "done" event, ChatContainer generates follow-up suggestions,
+    ChatLayout saves the updated conversation to localStorage.
+    Student sees:
+    ✅ Streamed answer text (rendered as Markdown)
+    🔵 Confidence bar + expandable source cards (CitationBlock)
+    💡 Follow-up suggestion pills below the answer
 ```
 
 ---
@@ -2127,15 +2202,18 @@ Open the URL shown (usually [http://localhost:8501](http://localhost:8501))
 
 The modular architecture supports these expansions without major refactoring:
 
-| Feature | How to Add |
-|---------|-----------|
-| **Multi-document support** | Add more PDFs to ingestion pipeline, tag chunks with document source |
-| **Department knowledge bases** | Separate FAISS indices per department, route queries based on intent |
-| **Website ingestion** | Add a web scraper module to the ingestion pipeline |
-| **Authentication (SSO)** | Add FastAPI middleware for JWT/OAuth validation |
-| **Analytics dashboard** | Log queries to a database, build a Streamlit analytics page |
-| **Placement info** | Add placement brochures as additional data sources |
-| **Timetable system** | Integrate a timetable API as a new retrieval source |
+| Feature | Status | How to Add |
+|---------|--------|-----------|
+| **Multi-document support** | ✅ Done | All PDFs + TXTs in `pdfs/` auto-ingested, tagged with `source_doc` |
+| **Question paper registry** | ✅ Done | `data/question_papers.json` built via `build_papers_registry.py` |
+| **Admin analytics dashboard** | ✅ Done | `/admin` page with Supabase-backed stats, hourly chart, top questions |
+| **Persistent chat history** | ✅ Done (browser) | localStorage, max 20 conversations; cross-device sync requires backend DB |
+| **Conversational memory** | ✅ Done | AI contextualizes follow-up questions using query rewriting |
+| **Department knowledge bases** | Planned | Separate FAISS indices per department, route queries based on intent |
+| **Website ingestion** | Planned | Add a web scraper module to the ingestion pipeline |
+| **Authentication (SSO)** | Planned | Add FastAPI middleware for JWT/OAuth validation with `@nmims.edu` restriction |
+| **Placement info** | Planned | Add placement brochures as additional data sources |
+| **Timetable system** | Planned | Integrate a timetable API as a new retrieval source |
 
 ---
 
@@ -2151,7 +2229,7 @@ NM-GPT has full automated test coverage across both backend and frontend.
 |------|----------|
 | `tests/test_config.py` | Config values, env var overrides, path types |
 | `tests/test_embeddings.py` | `get_embedding_model`, `embed_query`, `embed_texts`, error handling |
-| `tests/test_llm_client.py` | `get_llm` params, `generate`, `generate_stream` (empty chunk skipping) |
+| `tests/test_llm_client.py` | `get_llm` params, `generate`, `generate_stream`, rate limit retries, list content extraction |
 | `tests/test_rag_pipeline.py` | Prompt injection safety, citation extraction, confidence, retrieve, query, stream event ordering |
 | `tests/test_api.py` | `/health` (503 cases), `/query` (422 validation, 503/500 errors), `/query/stream` (SSE parsing), CORS, rate limiting |
 
@@ -2170,7 +2248,7 @@ NM-GPT has full automated test coverage across both backend and frontend.
 | `__tests__/CitationBlock.test.tsx` | Page range formatting, source dedup, confidence %, expand/collapse |
 | `__tests__/MessageBubble.test.tsx` | User/AI bubble rendering, error state, retry button, TypingIndicator |
 | `__tests__/EmptyState.test.tsx` | All 6 suggestion cards render, click handlers pass correct prompt text |
-| `__tests__/ChatContainer.test.tsx` | SSE stream processing, token accumulation, error handling, retry, fetch payload |
+| `__tests__/ChatContainer.test.tsx` | SSE stream processing, token accumulation, error handling, retry, fetch payload, controlled/uncontrolled props |
 
 **Mock strategy:**
 - `framer-motion` — replaced with plain HTML elements (animations don't work in jsdom)
@@ -2194,6 +2272,10 @@ NM-GPT has full automated test coverage across both backend and frontend.
 | **Heuristic confidence score** | Simple but useful — tells students how sure the system is |
 | **`str.partition()` in `_build_prompt`** | Prevents cross-substitution: sequential `.replace()` calls allow context containing `{question}` (or question containing `{context}`) to corrupt the prompt |
 | **Greeting detection before RAG** | Saves a Gemini API call and FAISS search for trivial inputs; responds instantly |
+| **localStorage chat history** | No backend required for persistence; `key={activeId}` on `ChatContainer` remounts it cleanly on conversation switch, resetting all streaming/loading state |
+| **Fire-and-forget Supabase logger** | Query logging runs in a daemon thread — it can fail without affecting students; zero latency impact on API responses |
+| **Keyword-based follow-up suggestions** | Simple and fast (no extra LLM call); 8 topic categories cover the most common question areas; pills appear only on the final non-streaming message |
+| **Controlled/uncontrolled `ChatContainer`** | `ChatContainer` works standalone (no props = uses internal state, existing tests need no changes) or controlled by `ChatLayout` (props override local state); pattern avoids prop-drilling tests |
 
 ---
 

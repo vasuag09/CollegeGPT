@@ -86,6 +86,11 @@ def get_pipeline():
 # ── Request / Response Models ────────────────────────────────
 
 
+class Message(BaseModel):
+    role: str
+    content: str
+
+
 class QueryRequest(BaseModel):
     question: str = Field(
         ...,
@@ -95,6 +100,9 @@ class QueryRequest(BaseModel):
     )
     top_k: int = Field(
         default=DEFAULT_TOP_K, ge=1, le=20, description="Number of chunks to retrieve"
+    )
+    history: list[Message] = Field(
+        default_factory=list, description="Recent conversation history"
     )
 
 
@@ -154,7 +162,8 @@ async def query(request: Request, body: QueryRequest):
     start = time.time()
     try:
         pipeline = get_pipeline()
-        result = pipeline.query(question=body.question, top_k=body.top_k)
+        history = [msg.model_dump() for msg in body.history]
+        result = pipeline.query(question=body.question, top_k=body.top_k, history=history)
         latency = int((time.time() - start) * 1000)
         logger.info("Query answered: confidence=%.2f, pages=%s", result["confidence"], result["pages"])
         log_query(body.question, _answer_type(result), result["confidence"], latency, get_remote_address(request))
@@ -192,7 +201,8 @@ async def query_stream(request: Request, body: QueryRequest):
         _log = {"type": "rag", "confidence": 0.0}
         try:
             pipeline = get_pipeline()
-            for event in pipeline.query_stream(question=body.question, top_k=body.top_k):
+            history = [msg.model_dump() for msg in body.history]
+            for event in pipeline.query_stream(question=body.question, top_k=body.top_k, history=history):
                 if event.get("type") == "citations":
                     _log["confidence"] = event.get("confidence", 0.0)
                     has_citations = bool(event.get("citations"))

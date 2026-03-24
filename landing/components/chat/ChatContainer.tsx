@@ -123,10 +123,19 @@ export default function ChatContainer({
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
       try {
+        const payloadHistory = messages
+          .filter((m) => !m.isError && m.content)
+          .map((m) => ({ role: m.role, content: m.content }))
+          .slice(-4);
+
         const response = await fetch(STREAM_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question, top_k: TOP_K }),
+          body: JSON.stringify({ 
+            question, 
+            top_k: TOP_K,
+            history: payloadHistory
+          }),
           signal: controller.signal,
         });
 

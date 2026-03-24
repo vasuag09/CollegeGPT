@@ -15,6 +15,13 @@ Built with Google Gemini 2.5-flash, FAISS, FastAPI, and Next.js.
 - Page citations with every answer
 - Expandable source excerpts showing the exact text used
 - Confidence score per response
+- Conversational memory — AI understands follow-up questions contextually using query rewriting
+- Follow-up suggestion pills after each AI response (keyword-matched)
+- Persistent chat history via localStorage — survives page refresh
+- Multi-conversation sidebar with relative timestamps
+- Previous year question paper links (Google Drive) via in-chat search
+- Admin dashboard at `/admin` with query stats, hourly chart, top questions
+- Query logging to Supabase (fire-and-forget, no latency impact)
 - Modular architecture — new documents can be added in minutes
 
 ---
@@ -102,10 +109,11 @@ The pipeline automatically detects all files in `pdfs/` and tags each chunk with
 
 ```
 backend/
-  app.py                FastAPI server — /health, /query, /query/stream
+  app.py                FastAPI server — /health, /query, /query/stream, /admin/stats
   rag_pipeline.py       Core RAG logic
   embeddings.py         Gemini embedding wrapper
-  llm_client.py         Gemini LLM client with SSE streaming
+  llm_client.py         Gemini LLM client with SSE streaming + rate-limit retries
+  query_logger.py       Fire-and-forget Supabase query logger
   config.py             Centralized configuration
   prompts/
     system_prompt.txt
@@ -115,18 +123,22 @@ scripts/
   extract_pdf.py        pdfs/ (PDFs + TXT) -> data/pages.json
   chunk_documents.py    pages.json -> data/chunks.jsonl
   build_index.py        chunks.jsonl -> FAISS index + metadata
+  build_papers_registry.py  Builds data/question_papers.json from Google Drive
 
 landing/                Next.js frontend (primary UI)
   app/
+    admin/
+      layout.tsx        Password-gated admin auth wrapper
+      page.tsx          Admin dashboard — stats, charts, top questions
   components/
-    Sidebar.tsx
+    Sidebar.tsx         Recent Chats + Knowledge Base
     chat/
-      ChatContainer.tsx
+      ChatLayout.tsx    localStorage persistence + conversation management
+      ChatContainer.tsx SSE stream reader, follow-up suggestion generation
       ChatInput.tsx
       MessageBubble.tsx
       CitationBlock.tsx
       EmptyState.tsx
-      ChatLayout.tsx
 
 streamlit_app/
   app.py                Streamlit backup UI (no streaming)
@@ -183,6 +195,10 @@ Event types: `token`, `citations`, `done`, `error`
 
 Returns `{"status": "healthy", "service": "NM-GPT"}`
 
+### GET /admin/stats
+
+Returns query statistics for the last 7 days. Requires `X-Admin-Password` header.
+
 ---
 
 ## Tech Stack
@@ -224,8 +240,8 @@ See [docs/architecture.md](docs/architecture.md) for a detailed breakdown.
 ## Known Limitations
 
 - No authentication — the API is open
-- Chat history is not persisted across page refreshes
 - Confidence score is a heuristic based on L2 distance, not calibrated
+- Chat history is local (localStorage) — not synced across devices or browsers
 
 ### Configuration
 
