@@ -37,9 +37,12 @@ The prototype is complete and demo-ready. The following components are built and
 - `/health` — health check
 - `/query` — synchronous RAG query
 - `/query/stream` — SSE streaming RAG query (primary endpoint used by frontend)
+- `/admin/stats` — query statistics for last 7 days (requires `X-Admin-Password` header)
 - `backend/app.py`, `backend/rag_pipeline.py`, `backend/embeddings.py`, `backend/llm_client.py`, `backend/config.py`
+- `backend/query_logger.py` — fire-and-forget Supabase logger (daemon thread, no latency impact)
 - Prompts stored as plain text files in `backend/prompts/`
 - Greeting detection — common greetings bypass the LLM and return an instant response
+- Rate limit retry in `llm_client.py` — retries up to 2× on 429/quota; handles gemini-2.5-flash thinking-model list content
 
 **Tests**
 - Backend: 129 pytest tests covering config, embeddings, llm_client, rag_pipeline, API endpoints, rate limiting
@@ -54,7 +57,15 @@ The prototype is complete and demo-ready. The following components are built and
 
 **Frontends**
 - Next.js 16 + React 19 + TypeScript + Tailwind CSS + Framer Motion — primary UI at `landing/`
+- Admin dashboard at `landing/app/admin/` — sessionStorage password gate, query stats, hourly SVG chart
 - Streamlit — backup UI at `streamlit_app/app.py`
+
+**Chat Features**
+- Conversational memory — AI understands follow-up questions via query rewriting
+- Chat history persisted in `localStorage` — survives page refresh, max 20 conversations
+- Multi-conversation sidebar with relative timestamps ("Just now", "5m ago", etc.)
+- Follow-up suggestion pills after each AI response (keyword-matched, 8 topic categories)
+- Previous year question papers accessible via in-chat lookup (`data/question_papers.json`)
 
 **Indexed Documents** (in `pdfs/`)
 - `Final SRB A.Y. 2025-26 .................................pdf` — 112 pages
@@ -166,12 +177,15 @@ Confidence = 1 - (avg_l2_distance / 2). Heuristic, not calibrated.
 **Backend (FastAPI):** handles RAG pipeline, API endpoints, SSE streaming
 
 **Frontend (Next.js primary):**
-- `landing/components/chat/ChatContainer.tsx` — core logic, SSE stream reader
-- `landing/components/chat/MessageBubble.tsx` — renders user/AI messages with markdown
+- `landing/components/chat/ChatLayout.tsx` — localStorage persistence, conversation management, active conv state
+- `landing/components/chat/ChatContainer.tsx` — core logic, SSE stream reader, follow-up suggestion generation
+- `landing/components/chat/MessageBubble.tsx` — renders user/AI messages with markdown + follow-up pills
 - `landing/components/chat/CitationBlock.tsx` — confidence bar + expandable evidence cards
 - `landing/components/chat/ChatInput.tsx` — auto-resizing textarea, Enter to send
 - `landing/components/chat/EmptyState.tsx` — suggestions UI on first load
-- `landing/components/Sidebar.tsx` — conversation history (currently hardcoded placeholder data)
+- `landing/components/Sidebar.tsx` — Recent Chats (real conversations) + Knowledge Base section
+- `landing/app/admin/layout.tsx` — sessionStorage password gate for admin area
+- `landing/app/admin/page.tsx` — admin dashboard: stat cards, hourly SVG chart, top questions, answer types
 
 **Frontend config:** Backend URL is read from `NEXT_PUBLIC_API_URL` in `landing/.env.local`. Change this env var before deploying.
 
@@ -221,20 +235,22 @@ Prompts are in `backend/prompts/system_prompt.txt` and `backend/prompts/retrieva
 
 ```
 backend/
-  app.py               FastAPI server, endpoints, CORS
+  app.py               FastAPI server, endpoints, CORS, /admin/stats
   rag_pipeline.py      Core RAG orchestration
   embeddings.py        Gemini embedding wrapper
-  llm_client.py        Gemini LLM client with streaming
+  llm_client.py        Gemini LLM client with streaming + rate-limit retries
+  query_logger.py      Fire-and-forget Supabase query logger
   config.py            All settings and paths (single source of truth)
   prompts/
     system_prompt.txt
     retrieval_prompt.txt
 
 scripts/
-  extract_pdf.py       pdfs/ (PDFs + TXT) → pages.json
-  chunk_documents.py   pages.json → chunks.jsonl
-  build_index.py       chunks.jsonl → faiss_index.bin + metadata.json
-  verify_api.py        API smoke test
+  extract_pdf.py             pdfs/ (PDFs + TXT) → pages.json
+  chunk_documents.py         pages.json → chunks.jsonl
+  build_index.py             chunks.jsonl → faiss_index.bin + metadata.json
+  build_papers_registry.py   builds data/question_papers.json from Google Drive
+  verify_api.py              API smoke test
 
 streamlit_app/
   app.py               Streamlit chat UI (backup frontend)
@@ -243,13 +259,16 @@ landing/               Next.js frontend (primary)
   app/
     layout.tsx
     page.tsx
+    admin/
+      layout.tsx       Password gate (sessionStorage)
+      page.tsx         Admin dashboard — stats, hourly chart, top questions
   components/
-    Sidebar.tsx
+    Sidebar.tsx        Recent Chats + Knowledge Base (collapsible)
     chat/
-      ChatLayout.tsx
-      ChatContainer.tsx
+      ChatLayout.tsx   localStorage conversation management
+      ChatContainer.tsx SSE reader + follow-up suggestion generation
       ChatInput.tsx
-      MessageBubble.tsx
+      MessageBubble.tsx Follow-up suggestion pills
       EmptyState.tsx
       CitationBlock.tsx
 
@@ -302,8 +321,7 @@ These are known and intentional omissions for the prototype. Do not add complexi
 
 **Critical before production:**
 - No authentication — anyone can query the API
-- No database — chat history lost on refresh; sidebar shows hardcoded placeholder conversations
-- No query logging or analytics
+- Chat history is localStorage only — not synced across devices or browsers
 
 **Quality:**
 - Confidence score is a heuristic, not calibrated
@@ -327,6 +345,13 @@ These are known and intentional omissions for the prototype. Do not add complexi
 - Citation fallback removed — pages list is empty if LLM doesn't cite
 - Greeting detection in RAG pipeline — common greetings (hi, hello, hey, etc.) return an instant friendly response without hitting the LLM or FAISS
 - Full test suite added: 129 backend tests (pytest) + 81 frontend tests (Vitest)
+- Chat history persisted in localStorage — max 20 conversations, survives refresh
+- Multi-conversation sidebar with real data + relative timestamps
+- Follow-up suggestion pills added to MessageBubble (keyword-matched, post-response)
+- Query logging to Supabase via `query_logger.py` (fire-and-forget daemon thread)
+- Admin dashboard at `/admin` — password gate, stat cards, hourly chart, top questions, auto-refresh 30s
+- PYQ registry (`data/question_papers.json`) and in-chat question paper search
+- Rate limit retry + gemini-2.5-flash thinking-model list content handling in `llm_client.py`
 
 Full prioritized roadmap: `docs/post_demo_improvements.md`
 
@@ -352,7 +377,7 @@ Check `backend/config.py` before hardcoding any paths, model names, or settings.
 
 The system may later expand to support:
 
-question paper links registry (data/question_papers.json → Google Drive links)
+question paper links registry — built (`data/question_papers.json` → Google Drive links)
 more institutional documents in pdfs/
 department knowledge bases
 college website ingestion

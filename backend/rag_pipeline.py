@@ -28,6 +28,16 @@ _GREETING_RESPONSE = (
     "UFM penalties, or any other information from official university documents."
 )
 
+_REWRITE_PROMPT_TEMPLATE = """Given the following conversation history and the user's latest follow-up question, rewrite the follow-up question into a standalone question that can be understood without the history.
+Do NOT answer the question, just reformulate it. If the question is already standalone, return it exactly as is.
+
+CHAT HISTORY:
+{history_str}
+
+LATEST QUESTION: {question}
+
+STANDALONE QUESTION:"""
+
 import numpy as np
 import faiss
 
@@ -194,7 +204,18 @@ class RAGPipeline:
             context_parts.append(f"[{page_info}]\n{chunk['text']}")
         return "\n\n".join(context_parts)
 
-    def _build_prompt(self, context: str, question: str) -> str:
+    def _rewrite_query(self, question: str, history: list[dict] | None) -> str:
+        """Rewrite the user's query into a standalone question using chat history."""
+        if not history:
+            return question
+        history_str = "\n".join(f"{msg.get('role', 'user').capitalize()}: {msg.get('content', '')}" for msg in history[-4:])
+        prompt = _REWRITE_PROMPT_TEMPLATE.format(history_str=history_str, question=question)
+        logger.info("Rewriting query based on history...")
+        rewritten = generate(prompt).strip()
+        logger.info("Rewritten query: %r", rewritten)
+        return rewritten
+
+    def _build_prompt(self, context: str, question: str, history: list[dict] | None = None) -> str:
         """Build the full prompt from system prompt + retrieval template.
 
         Uses str.partition() to prevent cross-substitution: context containing
@@ -202,7 +223,14 @@ class RAGPipeline:
         """
         before_ctx, _, after_ctx = self.retrieval_prompt_template.partition("{context}")
         before_q, _, after_q = after_ctx.partition("{question}")
-        retrieval_prompt = before_ctx + context + before_q + question + after_q
+        
+        if history:
+            history_str = "\n".join(f"{msg.get('role', 'user').capitalize()}: {msg.get('content', '')}" for msg in history[-4:])
+            q_block = f"CHAT HISTORY:\n{history_str}\n\nSTUDENT'S LATEST QUESTION: {question}"
+        else:
+            q_block = question
+
+        retrieval_prompt = before_ctx + context + before_q + q_block + after_q
         return f"{self.system_prompt}\n\n{retrieval_prompt}"
 
     def _extract_page_citations(self, answer: str, chunks: list[dict]) -> list[int]:
@@ -239,7 +267,7 @@ class RAGPipeline:
         confidence = max(0.0, min(1.0, 1.0 - (avg_distance / 2.0)))
         return round(confidence, 2)
 
-    def query(self, question: str, top_k: int = DEFAULT_TOP_K) -> dict:
+    def query(self, question: str, top_k: int = DEFAULT_TOP_K, history: list[dict] | None = None) -> dict:
         """Run the full RAG pipeline.
 
         Returns:
@@ -267,7 +295,8 @@ class RAGPipeline:
                 "confidence": 1.0,
             }
 
-        chunks = self.retrieve(question, top_k=top_k)
+        search_query = self._rewrite_query(question, history)
+        chunks = self.retrieve(search_query, top_k=top_k)
 
         if not chunks:
             return {
@@ -278,7 +307,7 @@ class RAGPipeline:
             }
 
         context = self._assemble_context(chunks)
-        prompt = self._build_prompt(context, question)
+        prompt = self._build_prompt(context, question, history)
 
         logger.info("Generating answer...")
         answer = generate(prompt)
@@ -306,7 +335,7 @@ class RAGPipeline:
         }
 
     def query_stream(
-        self, question: str, top_k: int = DEFAULT_TOP_K
+        self, question: str, top_k: int = DEFAULT_TOP_K, history: list[dict] | None = None
     ) -> Generator[dict, None, None]:
         """Stream the RAG pipeline response.
 
@@ -329,7 +358,8 @@ class RAGPipeline:
             yield {"type": "done"}
             return
 
-        chunks = self.retrieve(question, top_k=top_k)
+        search_query = self._rewrite_query(question, history)
+        chunks = self.retrieve(search_query, top_k=top_k)
 
         if not chunks:
             yield {
@@ -341,7 +371,7 @@ class RAGPipeline:
             return
 
         context = self._assemble_context(chunks)
-        prompt = self._build_prompt(context, question)
+        prompt = self._build_prompt(context, question, history)
 
         logger.info("Streaming answer...")
         full_answer = ""

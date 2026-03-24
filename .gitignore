@@ -13,3 +13,7 @@ index/
 
 # OS
 .DS_Store
+
+# AI Agents
+.claude/
+.gemini/

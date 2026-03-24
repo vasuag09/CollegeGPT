@@ -17,22 +17,11 @@ These block real student use. Do these before any campus-wide rollout.
 - Restrict access to `@nmims.edu` email domain
 - Candidate library: **NextAuth.js** (frontend) + **python-jose** (backend JWT validation)
 
-### 1.2 Query Logging & Analytics
-**Why:** Without logs, you cannot improve the system. You have no idea what students are struggling with.
+### 1.2 ✅ Query Logging & Analytics — DONE
+Query logging to Supabase via `backend/query_logger.py` (fire-and-forget daemon thread, zero latency impact). Admin dashboard at `/admin` shows: total queries, avg confidence, hourly chart (inline SVG), top questions, answer type distribution. Auto-refreshes every 30s. Protected by `X-Admin-Password` header + sessionStorage gate.
 
-- Log every query: `user_id`, `question`, `retrieved_chunks`, `answer`, `confidence`, `latency`, `timestamp`
-- Use **PostgreSQL** (or SQLite for start) via **SQLModel** in the backend
-- Build a simple admin dashboard showing:
-  - Top 20 questions asked
-  - Questions with low confidence (< 0.5) — these reveal gaps in the documents
-  - Daily/weekly query volume
-
-### 1.3 Persistent Chat History
-**Why:** Sidebar currently shows hardcoded fake conversations. Every page refresh wipes history.
-
-- Backend: store conversations in the same database as logs
-- Frontend: replace in-memory state with API calls to `/conversations` endpoints
-- Each conversation = `{id, title, messages[], created_at}`
+### 1.3 ✅ Persistent Chat History — DONE (localStorage)
+Chat history now persists across page refreshes via localStorage (`nmgpt_conversations`, max 20). `ChatLayout.tsx` owns conversation state, passes it down to `ChatContainer` (controlled/uncontrolled pattern). Sidebar shows real recent chats with relative timestamps. Switching conversations remounts `ChatContainer` via `key={activeId}` for clean state reset. Note: history is browser-local — not synced across devices.
 
 ### 1.4 ✅ Proper Environment Configuration — DONE
 Backend URL now read from `NEXT_PUBLIC_API_URL` in `landing/.env.local`. Backend CORS origins read from `ALLOWED_ORIGINS` in `.env`. See `.env.example` for all variables.
@@ -41,23 +30,8 @@ Backend URL now read from `NEXT_PUBLIC_API_URL` in `landing/.env.local`. Backend
 
 ## Priority 2 — Robustness & Quality
 
-### 2.1 Add a Test Suite
-**Why:** Zero test coverage means any change can silently break things.
-
-**Backend (pytest):**
-```
-tests/
-  test_rag_pipeline.py    # Unit test retrieve, assemble, generate
-  test_embeddings.py      # Mock Gemini, test fallback behavior
-  test_api.py             # Integration test /query and /health endpoints
-```
-
-**Frontend (Vitest + React Testing Library):**
-```
-landing/__tests__/
-  CitationBlock.test.tsx  # Render citations with various confidence values
-  ChatContainer.test.tsx  # SSE stream parsing logic
-```
+### 2.1 ✅ Test Suite — DONE
+129 backend pytest tests covering config, embeddings, llm_client, rag_pipeline, API endpoints, rate limiting. 81 frontend Vitest tests covering ChatInput, CitationBlock, MessageBubble, EmptyState, ChatContainer. Run: `pytest` (backend) and `npm run test:run` from `landing/` (frontend).
 
 ### 2.2 ✅ Structured Logging — DONE
 All backend modules (`app.py`, `rag_pipeline.py`, `llm_client.py`, `embeddings.py`) use Python `logging` with format `timestamp [LEVEL] module: message`.
@@ -115,24 +89,14 @@ The ingestion pipeline now supports multiple documents:
 
 Remaining: show `source_doc` in `CitationBlock.tsx` (see Priority 3.5 above).
 
-### 4.2 Question Paper Links Registry
-**Why:** Dean requested previous year question paper access for students.
+### 4.2 ✅ Question Paper Links Registry — DONE
+`data/question_papers.json` built via `scripts/build_papers_registry.py`. In-chat search returns Google Drive links when students ask for question papers. `EmptyState.tsx` includes a "Question Papers" prompt card.
 
-- Build a `data/question_papers.json` registry: subject, code, semester, year, branch → Google Drive link
-- Add a lookup endpoint or integrate into the RAG pipeline as a separate intent
-- When student asks for a question paper, return the Drive link directly (no vector search needed)
+### 4.3 ✅ Admin Panel — DONE (read-only dashboard)
+Admin dashboard at `/admin` — sessionStorage password gate, stat cards, inline SVG hourly chart, top questions list, answer type breakdown. Auto-refreshes every 30s. Upload/re-ingestion UI not added (still requires CLI).
 
-### 4.3 Admin Panel
-**Why:** Updating documents requires a developer running scripts manually.
-
-- Simple web UI with: upload new PDF → re-ingestion, view query logs, test questions
-- Lock behind admin authentication
-
-### 4.4 Proactive Suggestions
-**Why:** Students don't always know what to ask.
-
-- After every answer, generate 3 related follow-up questions
-- Display as clickable chips below the answer
+### 4.4 ✅ Proactive Suggestions — DONE
+Follow-up suggestion pills appear after each AI response. Keyword-matched against 8 topic categories (attendance, exam, UFM, fee, backlog, revaluation, leave, hostel). Rendered as clickable pills in `MessageBubble.tsx`; clicking sends the suggestion as a new message.
 
 ### 4.5 Feedback Collection
 **Why:** No way for students to report wrong answers.
@@ -176,7 +140,7 @@ docker-compose.yml    # backend + frontend + (later) postgres
 |---|--------|------|--------|
 | 1 | Fix hardcoded `localhost:8000` URL | `ChatContainer.tsx` | ✅ Done |
 | 2 | Show `source_doc` in citation cards | `CitationBlock.tsx` | ✅ Done |
-| 3 | Add real sidebar conversation history | `Sidebar.tsx` | Pending |
+| 3 | Add real sidebar conversation history | `Sidebar.tsx`, `ChatLayout.tsx` | ✅ Done |
 | 4 | Add query length validation to ChatInput | `ChatInput.tsx` | ✅ Done |
 | 5 | Add `python-logging` to backend | `app.py`, `rag_pipeline.py` | ✅ Done |
 | 6 | Real `/health` endpoint | `backend/app.py` | ✅ Done |

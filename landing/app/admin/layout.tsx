@@ -18,7 +18,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, []);
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
