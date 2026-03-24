@@ -7,7 +7,7 @@ import EmptyState from "./EmptyState";
 
 // ── Types ───────────────────────────────────────────────────
 
-interface Citation {
+export interface Citation {
   text: string;
   page_start: number;
   page_end: number;
@@ -15,7 +15,7 @@ interface Citation {
   source?: string;
 }
 
-interface Message {
+export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
@@ -65,10 +65,23 @@ const STREAM_URL = `${API_BASE}/query/stream`;
 const TOP_K = 5;
 const REQUEST_TIMEOUT_MS = 60_000;
 
+// ── Props ────────────────────────────────────────────────────
+
+interface ChatContainerProps {
+  messages?: Message[];
+  onMessagesChange?: React.Dispatch<React.SetStateAction<Message[]>>;
+}
+
 // ── Component ───────────────────────────────────────────────
 
-export default function ChatContainer() {
-  const [messages, setMessages] = useState<Message[]>([]);
+export default function ChatContainer({
+  messages: propMessages,
+  onMessagesChange,
+}: ChatContainerProps = {}) {
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const messages = propMessages ?? localMessages;
+  const setMessages: React.Dispatch<React.SetStateAction<Message[]>> =
+    onMessagesChange ?? setLocalMessages;
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
