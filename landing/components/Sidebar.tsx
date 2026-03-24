@@ -2,11 +2,15 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import type { Conversation } from "./chat/ChatLayout";
 
 interface SidebarProps {
   onNewChat?: () => void;
   isOpen?: boolean;
   onToggle?: () => void;
+  conversations?: Conversation[];
+  activeId?: string;
+  onSelectConversation?: (id: string) => void;
 }
 
 const knowledgeBase = [
@@ -18,9 +22,26 @@ const knowledgeBase = [
   { label: "Exam Instructions", short: "Rules", icon: "📋" },
 ];
 
+function relativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return "Just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
 
-export default function Sidebar({ onNewChat, isOpen = true }: SidebarProps) {
-  const [kbExpanded, setKbExpanded] = useState(true);
+export default function Sidebar({
+  onNewChat,
+  isOpen = true,
+  conversations = [],
+  activeId = "",
+  onSelectConversation,
+}: SidebarProps) {
+  const [kbExpanded, setKbExpanded] = useState(false);
+
+  // Only show conversations that have at least one message
+  const recentChats = conversations.filter((c) => c.messages.length > 0);
 
   return (
     <aside
@@ -66,6 +87,38 @@ export default function Sidebar({ onNewChat, isOpen = true }: SidebarProps) {
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar px-3 space-y-4 pb-4">
+
+          {/* Recent Chats */}
+          {recentChats.length > 0 && (
+            <div>
+              <p className="flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-bold text-muted uppercase tracking-widest">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                Recent Chats
+              </p>
+              <div className="mt-1 space-y-0.5">
+                {recentChats.map((conv) => (
+                  <button
+                    key={conv.id}
+                    onClick={() => onSelectConversation?.(conv.id)}
+                    className={`w-full flex flex-col items-start px-2 py-2 rounded-lg text-left transition-colors duration-150 ${
+                      conv.id === activeId
+                        ? "bg-primary/10 border border-primary/20"
+                        : "hover:bg-surface/60 border border-transparent"
+                    }`}
+                  >
+                    <span className={`text-[12px] truncate w-full leading-tight font-medium ${
+                      conv.id === activeId ? "text-primary" : "text-foreground/80"
+                    }`}>
+                      {conv.title}
+                    </span>
+                    <span className="text-[10px] text-muted mt-0.5">{relativeTime(conv.updatedAt)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Knowledge Base */}
           <div>
