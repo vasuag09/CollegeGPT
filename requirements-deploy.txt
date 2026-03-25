@@ -21,3 +21,4 @@ faiss-cpu==1.13.2
 pymupdf==1.25.3
 
 twilio==9.10.4
+python-multipart==0.0.9
