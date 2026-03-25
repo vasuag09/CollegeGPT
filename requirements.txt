@@ -35,3 +35,4 @@ google-auth-oauthlib==1.2.1
 
 # API Integrations
 twilio==9.10.4
+python-multipart==0.0.9
