@@ -19,3 +19,5 @@ faiss-cpu==1.13.2
 
 # PDF Processing
 pymupdf==1.25.3
+
+twilio==9.10.4
