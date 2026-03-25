@@ -43,6 +43,10 @@ PAPERS_REGISTRY_PATH = DATA_DIR / "question_papers.json"
 # ── API Keys ─────────────────────────────────────────────────
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
 
+# ── Twilio (WhatsApp) ────────────────────────────────────────
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+
 # ── Supabase (query logging + admin dashboard) ────────────────
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")

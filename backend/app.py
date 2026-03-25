@@ -19,13 +19,14 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi import FastAPI, Header, HTTPException, Request, Form, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from twilio.twiml.messaging_response import MessagingResponse
 
 from backend.config import (
     ADMIN_PASSWORD,
@@ -237,6 +238,43 @@ async def query_stream(request: Request, body: QueryRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ── Twilio WhatsApp Webhook ──────────────────────────────────
+
+whatsapp_sessions: dict[str, list[dict]] = {}
+
+@app.post("/webhook/whatsapp")
+async def whatsapp_webhook(
+    From: str = Form(...),
+    Body: str = Form(...)
+):
+    """Handle incoming WhatsApp messages from Twilio."""
+    question = Body.strip()
+    pipeline = get_pipeline()
+    
+    try:
+        history = whatsapp_sessions.get(From, [])
+        result = pipeline.query(question=question, top_k=5, history=history)
+        answer = result["answer"]
+        
+        if result["citations"]:
+            citations_text = ", ".join(set([c["source"] for c in result["citations"]]))
+            reply_text = f"{answer}\n\n*Source:* {citations_text}"
+        else:
+            reply_text = answer
+
+        history.append({"role": "user", "content": question})
+        history.append({"role": "assistant", "content": answer})
+        whatsapp_sessions[From] = history[-6:]
+    except Exception as e:
+        logger.error("Error in whatsapp_webhook: %r", e)
+        reply_text = "I'm currently unable to access my knowledge base. Please try again later."
+    
+    twiml = MessagingResponse()
+    twiml.message(reply_text)
+    
+    return Response(content=str(twiml), media_type="application/xml")
 
 
 # ── Admin Dashboard ──────────────────────────────────────────
