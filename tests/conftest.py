@@ -77,7 +77,7 @@ def mock_pipeline():
         pipeline = MagicMock()
         pipeline.query.return_value = SAMPLE_QUERY_RESULT
 
-        def _stream(question, top_k=5):
+        def _stream(question, top_k=5, history=None):
             yield {"type": "token", "content": "The minimum attendance requirement is 75%."}
             yield {"type": "token", "content": " [Page 12]"}
             yield {
