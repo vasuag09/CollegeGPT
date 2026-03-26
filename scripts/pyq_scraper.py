@@ -183,17 +183,17 @@ def _download_file(page: Page, url: str, dest: Path, counts: dict, on_downloaded
 
 def _scrape_folder(page: Page, folder_url: str, local_dir: Path, counts: dict, depth: int = 0, on_downloaded=None, skip_paths: set = None, program: str = "", branch_override: Optional[set] = None, allowed_programs: Optional[set] = None) -> None:
     """
-    Recursively scrape a folder page.
-    - Rows with viewLibrary links → sub-folders (recurse)
-    - Rows with downloadFile links → files (download)
+    Recursively scrape a folder page using fast server-side HTTP GET instead of slow DOM rendering.
     """
-    logger.info("Visiting folder: %s", folder_url)
+    logger.info("Visiting folder (HTTP): %s", folder_url)
 
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
-            page.goto(folder_url, timeout=30_000, wait_until="domcontentloaded")
-            # Wait for the table to appear — much faster than networkidle
-            page.wait_for_selector("table", timeout=10_000)
+            # Bypass Playwright UI rendering completely for folder traversal
+            response = page.request.get(folder_url, timeout=30_000)
+            if response.status != 200:
+                raise RuntimeError(f"HTTP {response.status}")
+            html = response.text()
             break
         except Exception as exc:
             if attempt == _MAX_RETRIES:
@@ -202,17 +202,28 @@ def _scrape_folder(page: Page, folder_url: str, local_dir: Path, counts: dict, d
                 return
             time.sleep(2 ** attempt)
 
-    # Sub-folders: table cells containing viewLibrary links
-    folder_links = page.eval_on_selector_all(
-        "table tr td a[href*='viewLibrary?folderPath=']",
-        "els => els.map(e => ({text: e.innerText.trim(), href: e.href}))",
-    )
-
-    # Files: table cells containing downloadFile links
-    file_links = page.eval_on_selector_all(
-        "table tr td a[href*='downloadFile']",
-        "els => els.map(e => ({text: e.innerText.trim(), href: e.href}))",
-    )
+    # Use BeautifulSoup to parse DOM flawlessly without Chromium rendering overhead
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(html, "html.parser")
+    
+    folder_links = []
+    file_links = []
+    
+    for a in soup.select("table tr td a[href*='viewLibrary?folderPath=']"):
+        href = a.get("href", "")
+        text = a.text.strip()
+        if not href.startswith("http"):
+            href = "https://portal.svkm.ac.in" + href if href.startswith("/") else "https://portal.svkm.ac.in/MPSTME-NM-M/" + href
+        if text:
+            folder_links.append({"text": text, "href": href})
+            
+    for a in soup.select("table tr td a[href*='downloadFile']"):
+        href = a.get("href", "")
+        text = a.text.strip()
+        if not href.startswith("http"):
+            href = "https://portal.svkm.ac.in" + href if href.startswith("/") else "https://portal.svkm.ac.in/MPSTME-NM-M/" + href
+        if text:
+            file_links.append({"text": text, "href": href})
 
     for folder in folder_links:
         name = _sanitize(folder["text"])
