@@ -45,9 +45,8 @@ export default function Sidebar({
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 w-56 sm:w-64 flex flex-col bg-surface border-r border-border transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${
-        isOpen ? "translate-x-0" : "-translate-x-full"
-      }`}
+      className={`fixed inset-y-0 left-0 z-50 w-56 sm:w-64 flex flex-col bg-surface border-r border-border transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
     >
       {/* Amber accent top bar */}
       <div className="h-0.5 w-full bg-gradient-to-r from-primary via-accent to-transparent shrink-0" />
@@ -102,15 +101,13 @@ export default function Sidebar({
                   <button
                     key={conv.id}
                     onClick={() => onSelectConversation?.(conv.id)}
-                    className={`w-full flex flex-col items-start px-2 py-2 rounded-lg text-left transition-colors duration-150 ${
-                      conv.id === activeId
+                    className={`w-full flex flex-col items-start px-2 py-2 rounded-lg text-left transition-colors duration-150 ${conv.id === activeId
                         ? "bg-primary/10 border border-primary/20"
                         : "hover:bg-surface/60 border border-transparent"
-                    }`}
+                      }`}
                   >
-                    <span className={`text-[12px] truncate w-full leading-tight font-medium ${
-                      conv.id === activeId ? "text-primary" : "text-foreground/80"
-                    }`}>
+                    <span className={`text-[12px] truncate w-full leading-tight font-medium ${conv.id === activeId ? "text-primary" : "text-foreground/80"
+                      }`}>
                       {conv.title}
                     </span>
                     <span className="text-[10px] text-muted mt-0.5">{relativeTime(conv.updatedAt)}</span>
@@ -161,7 +158,7 @@ export default function Sidebar({
         <div className="shrink-0 px-4 py-4 border-t border-border">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-bold tracking-widest uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-              Beta
+              v1.0
             </span>
             <span className="text-[10px] text-muted">MPSTME · NMIMS</span>
           </div>
