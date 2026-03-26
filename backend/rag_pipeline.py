@@ -65,6 +65,35 @@ _PYQ_STOPWORDS = frozenset({
     "papers", "pyq", "pyqs", "previous", "year", "past", "exam", "exams", "old",
 })
 
+_ACRONYMS = {
+    "CO": ["COMPUTER", "ORGANIZATION"],
+    "COA": ["COMPUTER", "ORGANIZATION", "ARCHITECTURE"],
+    "DB": ["DATABASE"],
+    "DBMS": ["DATABASE", "MANAGEMENT"],
+    "DS": ["DATA", "STRUCTURES"],
+    "DSA": ["DATA", "STRUCTURES", "ALGORITHMS"],
+    "ML": ["MACHINE", "LEARNING"],
+    "AIML": ["ARTIFICIAL", "INTELLIGENCE", "MACHINE", "LEARNING"],
+    "OS": ["OPERATING", "SYSTEMS"],
+    "IT": ["INFORMATION", "TECHNOLOGY"],
+    "CS": ["COMPUTER", "SCIENCE"],
+    "CE": ["COMPUTER", "ENGINEERING"],
+    "SE": ["SOFTWARE", "ENGINEERING"],
+    "CN": ["COMPUTER", "NETWORKS"],
+    "DLD": ["DIGITAL", "LOGIC", "DESIGN"],
+    "MATHS": ["MATHEMATICS"],
+    "M1": ["MATHEMATICS", "I"],
+    "M2": ["MATHEMATICS", "II"],
+    "M3": ["MATHEMATICS", "III"],
+    "M4": ["MATHEMATICS", "IV"],
+    "1": ["I"],
+    "2": ["II"],
+    "3": ["III", "3RD"],
+    "4": ["IV", "4TH"],
+    "5": ["V"],
+    "6": ["VI"],
+}
+
 _papers_cache: list[dict] | None = None
 
 
@@ -82,10 +111,17 @@ def _load_papers() -> list[dict]:
 
 
 def _search_papers(question: str) -> list[dict]:
-    """Score papers by keyword overlap with the question. Returns top 20."""
-    tokens = {t.upper() for t in re.findall(r"[a-zA-Z0-9]+", question)
-              if t.lower() not in _PYQ_STOPWORDS and len(t) > 1}
-    if not tokens:
+    """Score papers by robust keyword and acronym overlap with the question. Returns top 20."""
+    raw_tokens = [t.upper() for t in re.findall(r"[a-zA-Z0-9]+", question) if t.lower() not in _PYQ_STOPWORDS]
+    
+    expanded_tokens = set()
+    for t in raw_tokens:
+        if t in _ACRONYMS:
+            expanded_tokens.update(_ACRONYMS[t])
+        elif len(t) > 1 or t.isdigit():
+            expanded_tokens.add(t)
+
+    if not expanded_tokens:
         return _load_papers()[:20]
 
     scored = []
@@ -95,11 +131,21 @@ def _search_papers(question: str) -> list[dict]:
             paper.get("filename", ""),
             paper.get("branch", ""),
         ])).upper()
-        score = sum(1 for t in tokens if t in target)
+        
+        target_words = set(re.findall(r"[A-Z0-9]+", target))
+        
+        score = 0
+        for t in expanded_tokens:
+            if t in target_words:  # Exact word match gets highest weight
+                score += 2
+            elif len(t) > 2 and any(w.startswith(t) for w in target_words):  # Prefix match gets lower weight
+                score += 1
+
         if score > 0:
             scored.append((score, paper))
 
-    scored.sort(key=lambda x: x[0], reverse=True)
+    # Sort primarily by score, resolve ties by newest year
+    scored.sort(key=lambda x: (x[0], x[1].get("year", "0000")), reverse=True)
     return [p for _, p in scored[:20]]
 
 

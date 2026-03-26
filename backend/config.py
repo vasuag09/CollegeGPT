@@ -25,6 +25,15 @@ PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 # PDF documents directory — place all PDFs here before running ingestion
 DOCS_DIR = PROJECT_ROOT / "pdfs"
 
+# PYQ scraper
+PYQ_DIR = DATA_DIR / "pyqs"
+SVKM_PORTAL_URL = "https://portal.svkm.ac.in/usermgmt/login"
+SVKM_USERNAME = os.getenv("SVKM_USERNAME", "")
+SVKM_PASSWORD = os.getenv("SVKM_PASSWORD", "")
+GOOGLE_DRIVE_FOLDER_NAME = os.getenv("GOOGLE_DRIVE_FOLDER_NAME", "NMIMS PYQs")
+GOOGLE_CREDENTIALS_PATH = PROJECT_ROOT / "credentials.json"
+GOOGLE_TOKEN_PATH = PROJECT_ROOT / "token.json"
+
 # Generated artefacts
 CHUNKS_PATH = DATA_DIR / "chunks.jsonl"
 FAISS_INDEX_PATH = INDEX_DIR / "faiss_index.bin"

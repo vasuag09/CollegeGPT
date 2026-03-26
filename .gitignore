@@ -5,7 +5,12 @@ __pycache__/
 
 # Data & Index (generated)
 data/chunks.jsonl
+data/pyqs/
 index/
+
+# Google OAuth credentials (never commit)
+credentials.json
+token.json
 
 # IDE
 .vscode/
