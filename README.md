@@ -20,6 +20,8 @@ Built with Google Gemini 2.5-flash, FAISS, FastAPI, and Next.js.
 - Persistent chat history via localStorage — survives page refresh
 - Multi-conversation sidebar with relative timestamps
 - Previous year question paper links (Google Drive) via in-chat search
+- WhatsApp chatbot via Twilio — students can query NM-GPT on WhatsApp
+- PYQ scraper — downloads question papers from the SVKM portal and syncs to Google Drive
 - Admin dashboard at `/admin` with query stats, hourly chart, top questions
 - Query logging to Supabase (fire-and-forget, no latency impact)
 - Modular architecture — new documents can be added in minutes
@@ -124,6 +126,11 @@ scripts/
   chunk_documents.py    pages.json -> data/chunks.jsonl
   build_index.py        chunks.jsonl -> FAISS index + metadata
   build_papers_registry.py  Builds data/question_papers.json from Google Drive
+  pyq_scraper.py        Downloads PYQs from the SVKM portal
+  drive_uploader.py     Uploads PYQs to Google Drive (OAuth2, idempotent)
+  sync_pyqs.py          Orchestrator: scrape → upload → delete local copies
+  inspect_portal.py     One-off Playwright script for portal CSS selector discovery
+  verify_api.py         API smoke test
 
 landing/                Next.js frontend (primary UI)
   app/
@@ -144,12 +151,14 @@ streamlit_app/
   app.py                Streamlit backup UI (no streaming)
 
 pdfs/                   Source documents for ingestion
-data/                   Generated data (gitignored: chunks.jsonl)
+data/                   Generated data (gitignored: chunks.jsonl, pyqs/)
 index/                  FAISS index + metadata (gitignored)
+tests/                  Backend pytest suite (145 tests)
 docs/
   architecture.md
   project_explanation.md
   post_demo_improvements.md
+  whatsapp.md           WhatsApp integration setup guide
 ```
 
 ---
@@ -199,6 +208,10 @@ Returns `{"status": "healthy", "service": "NM-GPT"}`
 
 Returns query statistics for the last 7 days. Requires `X-Admin-Password` header.
 
+### POST /webhook/whatsapp
+
+Twilio webhook endpoint. Accepts form-encoded data (`From`, `Body`), runs the RAG pipeline with per-phone session history, and returns TwiML XML with the answer. See [docs/whatsapp.md](docs/whatsapp.md) for setup.
+
 ---
 
 ## Tech Stack
@@ -211,6 +224,8 @@ Returns query statistics for the last 7 days. Requires `X-Admin-Password` header
 | Backend | FastAPI + Uvicorn + slowapi (rate limiting) |
 | Primary Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS 4, Framer Motion |
 | Backup Frontend | Streamlit |
+| WhatsApp | Twilio Messaging API + python-multipart |
+| PYQ Scraper | Playwright (portal automation) + Google Drive API v3 |
 | PDF Parsing | PyMuPDF |
 | Text Splitting | LangChain RecursiveCharacterTextSplitter |
 
@@ -248,6 +263,10 @@ See [docs/architecture.md](docs/architecture.md) for a detailed breakdown.
 The frontend reads `NEXT_PUBLIC_API_URL` from `landing/.env.local`. Set this to point to your deployed backend before hosting.
 
 The backend reads `ALLOWED_ORIGINS` (comma-separated) and `LLM_TIMEOUT_SECONDS` from `.env`. See `.env.example`.
+
+For WhatsApp: set `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` in `.env`, then point your Twilio sandbox webhook to `https://<your-host>/webhook/whatsapp`. See [docs/whatsapp.md](docs/whatsapp.md).
+
+For PYQ scraper: set `SVKM_USERNAME`, `SVKM_PASSWORD`, and `GOOGLE_DRIVE_FOLDER_NAME` in `.env`. Place `credentials.json` (Google OAuth) at the project root. Run `python -m scripts.sync_pyqs` to scrape and sync.
 
 See [docs/post_demo_improvements.md](docs/post_demo_improvements.md) for the full prioritized roadmap.
 

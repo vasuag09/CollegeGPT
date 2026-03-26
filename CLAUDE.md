@@ -38,6 +38,7 @@ The prototype is complete and demo-ready. The following components are built and
 - `/query` — synchronous RAG query
 - `/query/stream` — SSE streaming RAG query (primary endpoint used by frontend)
 - `/admin/stats` — query statistics for last 7 days (requires `X-Admin-Password` header)
+- `/webhook/whatsapp` — Twilio webhook; accepts form POST (`From`, `Body`), runs RAG with per-phone session history, returns TwiML XML
 - `backend/app.py`, `backend/rag_pipeline.py`, `backend/embeddings.py`, `backend/llm_client.py`, `backend/config.py`
 - `backend/query_logger.py` — fire-and-forget Supabase logger (daemon thread, no latency impact)
 - Prompts stored as plain text files in `backend/prompts/`
@@ -45,7 +46,7 @@ The prototype is complete and demo-ready. The following components are built and
 - Rate limit retry in `llm_client.py` — retries up to 2× on 429/quota; handles gemini-2.5-flash thinking-model list content
 
 **Tests**
-- Backend: 129 pytest tests covering config, embeddings, llm_client, rag_pipeline, API endpoints, rate limiting
+- Backend: 145 pytest tests covering config, embeddings, llm_client, rag_pipeline, API endpoints, rate limiting, WhatsApp webhook, Drive uploader, sync orchestrator
 - Frontend: 81 Vitest tests covering ChatInput, CitationBlock, MessageBubble, EmptyState, ChatContainer
 - Run backend: `pytest` from project root
 - Run frontend: `npm run test:run` from `landing/`
@@ -55,17 +56,26 @@ The prototype is complete and demo-ready. The following components are built and
 - `scripts/chunk_documents.py` — pages → `data/chunks.jsonl` (442 chunks)
 - `scripts/build_index.py` — chunks → `index/faiss_index.bin` + `index/metadata.json`
 
+**PYQ Scraper Pipeline** (run separately to sync question papers to Google Drive)
+- `scripts/pyq_scraper.py` — Playwright scraper that logs into SVKM portal and downloads PYQ PDFs to `data/pyqs/`
+- `scripts/drive_uploader.py` — Google Drive API v3 uploader; creates folder tree, uploads idempotently, deletes local copy on success; upload registry at `data/pyqs_uploaded.txt`
+- `scripts/sync_pyqs.py` — orchestrator: authenticate Drive → scrape → upload file-by-file → report counts; supports `--branch` flag for parallelism
+- `scripts/inspect_portal.py` — one-off Playwright script for SVKM portal CSS selector discovery; requires `SVKM_USERNAME`/`SVKM_PASSWORD` in `.env`
+- Requires: `SVKM_USERNAME`, `SVKM_PASSWORD`, `GOOGLE_DRIVE_FOLDER_NAME` in `.env`; `credentials.json` (Google OAuth) at project root
+
 **Frontends**
 - Next.js 16 + React 19 + TypeScript + Tailwind CSS + Framer Motion — primary UI at `landing/`
 - Admin dashboard at `landing/app/admin/` — sessionStorage password gate, query stats, hourly SVG chart
 - Streamlit — backup UI at `streamlit_app/app.py`
 
 **Chat Features**
-- Conversational memory — AI understands follow-up questions via query rewriting
+- Conversational memory — AI understands follow-up questions via query rewriting (`_rewrite_query` in `rag_pipeline.py`)
+- PYQ acronym mapping — `_ACRONYMS` dict expands subject codes (e.g. "DBMS" → `["DATABASE", "MANAGEMENT"]`) before token scoring in paper search
 - Chat history persisted in `localStorage` — survives page refresh, max 20 conversations
 - Multi-conversation sidebar with relative timestamps ("Just now", "5m ago", etc.)
 - Follow-up suggestion pills after each AI response (keyword-matched, 8 topic categories)
 - Previous year question papers accessible via in-chat lookup (`data/question_papers.json`)
+- WhatsApp channel — students can chat with NM-GPT on WhatsApp via Twilio; per-phone session history kept in memory (last 6 messages)
 
 **Indexed Documents** (in `pdfs/`)
 - `Final SRB A.Y. 2025-26 .................................pdf` — 112 pages
@@ -109,8 +119,18 @@ Defined in `backend/config.py`:
 - LLM_TEMPERATURE: 0.2
 - BACKEND_HOST: "localhost"
 - BACKEND_PORT: 8000
+- PYQ_DIR: `data/pyqs/` — local download directory for scraped PYQs
+- SVKM_PORTAL_URL: SVKM portal login URL
+- GOOGLE_DRIVE_FOLDER_NAME: root Drive folder for uploaded PYQs (from env)
+- GOOGLE_CREDENTIALS_PATH: `credentials.json` at project root (Google OAuth)
+- GOOGLE_TOKEN_PATH: `token.json` at project root (refreshed automatically)
 
-Environment variable required: `GOOGLE_API_KEY` in `.env`
+Environment variables required in `.env`:
+- `GOOGLE_API_KEY` — Gemini API key
+- `SVKM_USERNAME`, `SVKM_PASSWORD` — SVKM portal credentials (PYQ scraper)
+- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` — Twilio WhatsApp credentials
+- `GOOGLE_DRIVE_FOLDER_NAME` — Drive root folder name (default: "NMIMS PYQs")
+- `SUPABASE_URL`, `SUPABASE_KEY`, `ADMIN_PASSWORD` — Supabase query logging + admin dashboard
 
 ---
 
@@ -174,7 +194,7 @@ Confidence = 1 - (avg_l2_distance / 2). Heuristic, not calibrated.
 
 ## 4 Application Layer
 
-**Backend (FastAPI):** handles RAG pipeline, API endpoints, SSE streaming
+**Backend (FastAPI):** handles RAG pipeline, API endpoints, SSE streaming, WhatsApp webhook
 
 **Frontend (Next.js primary):**
 - `landing/components/chat/ChatLayout.tsx` — localStorage persistence, conversation management, active conv state
@@ -250,6 +270,10 @@ scripts/
   chunk_documents.py         pages.json → chunks.jsonl
   build_index.py             chunks.jsonl → faiss_index.bin + metadata.json
   build_papers_registry.py   builds data/question_papers.json from Google Drive
+  pyq_scraper.py             Playwright scraper — SVKM portal → data/pyqs/
+  drive_uploader.py          Google Drive API v3 uploader (idempotent, OAuth2)
+  sync_pyqs.py               Orchestrator: scrape → upload → delete local copies
+  inspect_portal.py          One-off portal inspection script for CSS selector discovery
   verify_api.py              API smoke test
 
 streamlit_app/
@@ -288,13 +312,16 @@ index/
   faiss_index.bin      FAISS binary index
   metadata.json        Chunk metadata
 
-tests/                 Backend test suite (pytest)
+tests/                 Backend test suite (pytest, 145 tests)
   conftest.py          Shared fixtures (client, mock_pipeline, rate limit management)
   test_config.py       Config values and env override tests
   test_embeddings.py   Embedding model and API wrapper tests
   test_llm_client.py   LLM client and streaming tests
   test_rag_pipeline.py RAG pipeline unit tests (prompt injection, citations, retrieval)
   test_api.py          FastAPI endpoint tests (health, query, stream, CORS, rate limiting)
+  test_whatsapp.py     WhatsApp webhook tests (session history, TwiML response, error cases)
+  test_drive_uploader.py  Drive uploader unit tests (auth, folder creation, upload, registry)
+  test_sync_pyqs.py    Sync orchestrator tests (branch filtering, scraper/uploader integration)
 
 landing/__tests__/     Frontend test suite (Vitest)
   setup.ts             Test environment setup
@@ -311,6 +338,7 @@ docs/
   architecture.md
   project_explanation.md
   post_demo_improvements.md   Prioritized roadmap for post-demo work
+  whatsapp.md                 WhatsApp integration setup guide (Twilio sandbox + production)
 ```
 
 ---
@@ -352,6 +380,9 @@ These are known and intentional omissions for the prototype. Do not add complexi
 - Admin dashboard at `/admin` — password gate, stat cards, hourly chart, top questions, auto-refresh 30s
 - PYQ registry (`data/question_papers.json`) and in-chat question paper search
 - Rate limit retry + gemini-2.5-flash thinking-model list content handling in `llm_client.py`
+- WhatsApp chatbot via Twilio — `/webhook/whatsapp` endpoint with per-phone in-memory session history
+- PYQ scraper + Drive uploader — `scripts/pyq_scraper.py`, `drive_uploader.py`, `sync_pyqs.py`; downloads from SVKM portal and syncs to Google Drive with idempotent upload registry
+- Conversational memory + acronym mapping in PYQ search — `_rewrite_query()` and `_ACRONYMS` in `rag_pipeline.py`
 
 Full prioritized roadmap: `docs/post_demo_improvements.md`
 
@@ -378,6 +409,8 @@ Check `backend/config.py` before hardcoding any paths, model names, or settings.
 The system may later expand to support:
 
 question paper links registry — built (`data/question_papers.json` → Google Drive links)
+PYQ scraper + Drive sync — built (`scripts/pyq_scraper.py`, `drive_uploader.py`, `sync_pyqs.py`)
+WhatsApp chatbot — built (`/webhook/whatsapp` via Twilio)
 more institutional documents in pdfs/
 department knowledge bases
 college website ingestion

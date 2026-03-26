@@ -120,11 +120,15 @@ NM-GPT/
 │       ├── system_prompt.txt     # System behavior rules
 │       └── retrieval_prompt.txt  # Query template with placeholders
 │
-├── scripts/                      # Ingestion scripts (re-run when pdfs/ changes)
+├── scripts/                      # Ingestion + utility scripts
 │   ├── extract_pdf.py            # pdfs/ (PDFs + TXT) → pages.json
 │   ├── chunk_documents.py        # pages.json → chunks.jsonl
 │   ├── build_index.py            # chunks.jsonl → FAISS index
 │   ├── build_papers_registry.py  # builds data/question_papers.json from Google Drive
+│   ├── pyq_scraper.py            # Playwright scraper — SVKM portal → data/pyqs/
+│   ├── drive_uploader.py         # Google Drive API v3 uploader (idempotent, OAuth2)
+│   ├── sync_pyqs.py              # Orchestrator: scrape → upload → delete local copies
+│   ├── inspect_portal.py         # One-off portal inspection for CSS selector discovery
 │   └── verify_api.py             # API smoke test
 │
 ├── landing/                      # Next.js frontend (primary)
@@ -158,16 +162,30 @@ NM-GPT/
 ├── data/                         # Generated data (gitignored)
 │   ├── pages.json                # Raw extracted pages (with source_doc)
 │   ├── chunks.jsonl              # 442 processed chunks
-│   └── question_papers.json      # PYQ registry — subject → Google Drive link
+│   ├── question_papers.json      # PYQ registry — subject → Google Drive link
+│   └── pyqs/                     # Downloaded PYQ PDFs (gitignored, temp before Drive upload)
+│       └── pyqs_uploaded.txt     # Upload registry — relative paths already synced to Drive
 │
 ├── index/                        # Vector index (gitignored)
 │   ├── faiss_index.bin           # FAISS binary index (442 vectors, 3072-dim)
 │   └── metadata.json             # Chunk metadata (parallel to vectors)
 │
+├── tests/                        # Backend test suite (pytest, 145 tests)
+│   ├── conftest.py               # Shared fixtures (client, mock_pipeline, rate limit management)
+│   ├── test_config.py            # Config values and env override tests
+│   ├── test_embeddings.py        # Embedding model and API wrapper tests
+│   ├── test_llm_client.py        # LLM client, streaming, rate limit retries
+│   ├── test_rag_pipeline.py      # Prompt injection, citations, retrieval, query
+│   ├── test_api.py               # FastAPI endpoints, CORS, rate limiting
+│   ├── test_whatsapp.py          # WhatsApp webhook — session history, TwiML, errors
+│   ├── test_drive_uploader.py    # Drive auth, folder creation, upload, registry
+│   └── test_sync_pyqs.py         # Sync orchestrator — branch filtering, counts
+│
 ├── docs/                         # Documentation
 │   ├── architecture.md           # Architecture overview
 │   ├── project_explanation.md    # This file
-│   └── post_demo_improvements.md # Prioritized roadmap
+│   ├── post_demo_improvements.md # Prioritized roadmap
+│   └── whatsapp.md               # WhatsApp integration setup guide
 │
 ├── requirements.txt              # Python dependencies
 ├── .env.example                  # API key template
@@ -268,13 +286,32 @@ PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 # PDF documents directory — place all PDFs and TXT files here
 DOCS_DIR = PROJECT_ROOT / "pdfs"
 
+# PYQ scraper
+PYQ_DIR = DATA_DIR / "pyqs"
+SVKM_PORTAL_URL = "https://portal.svkm.ac.in/usermgmt/login"
+SVKM_USERNAME = os.getenv("SVKM_USERNAME", "")
+SVKM_PASSWORD = os.getenv("SVKM_PASSWORD", "")
+GOOGLE_DRIVE_FOLDER_NAME = os.getenv("GOOGLE_DRIVE_FOLDER_NAME", "NMIMS PYQs")
+GOOGLE_CREDENTIALS_PATH = PROJECT_ROOT / "credentials.json"
+GOOGLE_TOKEN_PATH = PROJECT_ROOT / "token.json"
+
 # Generated artefacts
 CHUNKS_PATH = DATA_DIR / "chunks.jsonl"
 FAISS_INDEX_PATH = INDEX_DIR / "faiss_index.bin"
 METADATA_PATH = INDEX_DIR / "metadata.json"
+PAPERS_REGISTRY_PATH = DATA_DIR / "question_papers.json"
 
 # ── API Keys ─────────────────────────────────────────────────
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
+
+# ── Twilio (WhatsApp) ────────────────────────────────────────
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+
+# ── Supabase (query logging + admin dashboard) ────────────────
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 
 # ── Model Settings ───────────────────────────────────────────
 EMBEDDING_MODEL = "models/gemini-embedding-001"
@@ -1603,10 +1640,11 @@ from __future__ import annotations
 NM-GPT – FastAPI Backend
 
 Endpoints:
-  POST /query         – Answer a student question using the RAG pipeline
-  POST /query/stream  – Stream answer tokens via Server-Sent Events
-  GET  /health        – Health check (verifies index files + API key)
-  GET  /admin/stats   – Query statistics for last 7 days (X-Admin-Password header required)
+  POST /query              – Answer a student question using the RAG pipeline
+  POST /query/stream       – Stream answer tokens via Server-Sent Events
+  GET  /health             – Health check (verifies index files + API key)
+  GET  /admin/stats        – Query statistics for last 7 days (X-Admin-Password header required)
+  POST /webhook/whatsapp   – Twilio webhook; accepts form POST, returns TwiML XML
 """
 
 import json
@@ -1727,6 +1765,7 @@ async def query(request: Request, body: QueryRequest):
 | `/query` | POST | `{"question": str, "top_k": int}` | `{"answer": str, "citations": [...], "pages": [...], "confidence": float}` |
 | `/query/stream` | POST | `{"question": str, "top_k": int}` | SSE stream: `token`, `citations`, `done`, `error` events |
 | `/admin/stats` | GET | header: `X-Admin-Password` | `{"total_queries": int, "avg_confidence": float, "hourly": [...], ...}` |
+| `/webhook/whatsapp` | POST | form: `From` (phone), `Body` (message text) | TwiML XML response for Twilio |
 
 ### 💡 Example: Testing the API with cURL
 
@@ -1818,6 +1857,15 @@ The production-grade student-facing chat UI. Uses SSE streaming via `/query/stre
 **Admin dashboard (`landing/app/admin/`):**
 - `layout.tsx` — sessionStorage password gate; validates password against `/admin/stats` on first login; stores the password (not a boolean) so `page.tsx` can reuse it for API calls
 - `page.tsx` — stat cards (total queries, avg confidence, answer types), hourly bar chart (inline SVG, no chart library dependency), top questions list; auto-refreshes every 30s
+
+### WhatsApp (`/webhook/whatsapp`)
+
+Students can query NM-GPT directly on WhatsApp via Twilio:
+- Endpoint accepts a Twilio form POST (`From` = phone number, `Body` = message text)
+- Per-phone session history is kept in a module-level `whatsapp_sessions` dict (last 6 messages, in-memory)
+- Runs the RAG pipeline with conversational history, then formats the answer as a plain-text reply with the top source document cited
+- Returns TwiML XML (`<Response><Message>...</Message></Response>`) which Twilio delivers to the student's WhatsApp
+- See `docs/whatsapp.md` for Twilio sandbox setup and production deployment instructions
 
 ### Backup: Streamlit (`streamlit_app/app.py`)
 
@@ -2208,7 +2256,9 @@ The modular architecture supports these expansions without major refactoring:
 | **Question paper registry** | ✅ Done | `data/question_papers.json` built via `build_papers_registry.py` |
 | **Admin analytics dashboard** | ✅ Done | `/admin` page with Supabase-backed stats, hourly chart, top questions |
 | **Persistent chat history** | ✅ Done (browser) | localStorage, max 20 conversations; cross-device sync requires backend DB |
-| **Conversational memory** | ✅ Done | AI contextualizes follow-up questions using query rewriting |
+| **Conversational memory** | ✅ Done | `_rewrite_query()` in `rag_pipeline.py` rewrites follow-ups into standalone questions |
+| **WhatsApp chatbot** | ✅ Done | `/webhook/whatsapp` via Twilio; per-phone session history in memory |
+| **PYQ scraper + Drive sync** | ✅ Done | `pyq_scraper.py` + `drive_uploader.py` + `sync_pyqs.py`; downloads SVKM portal → uploads to Drive |
 | **Department knowledge bases** | Planned | Separate FAISS indices per department, route queries based on intent |
 | **Website ingestion** | Planned | Add a web scraper module to the ingestion pipeline |
 | **Authentication (SSO)** | Planned | Add FastAPI middleware for JWT/OAuth validation with `@nmims.edu` restriction |
@@ -2223,7 +2273,7 @@ NM-GPT has full automated test coverage across both backend and frontend.
 
 ### Backend Tests (pytest)
 
-**Run:** `pytest` from the project root (210 tests total: 129 backend + 81 frontend)
+**Run:** `pytest` from the project root (226 tests total: 145 backend + 81 frontend)
 
 | File | Coverage |
 |------|----------|
@@ -2232,6 +2282,9 @@ NM-GPT has full automated test coverage across both backend and frontend.
 | `tests/test_llm_client.py` | `get_llm` params, `generate`, `generate_stream`, rate limit retries, list content extraction |
 | `tests/test_rag_pipeline.py` | Prompt injection safety, citation extraction, confidence, retrieve, query, stream event ordering |
 | `tests/test_api.py` | `/health` (503 cases), `/query` (422 validation, 503/500 errors), `/query/stream` (SSE parsing), CORS, rate limiting |
+| `tests/test_whatsapp.py` | `/webhook/whatsapp` — session history persistence, TwiML format, missing fields |
+| `tests/test_drive_uploader.py` | Auth flow, `get_or_create_folder`, `upload_file`, upload registry |
+| `tests/test_sync_pyqs.py` | Branch slot filtering, scraper/uploader orchestration, exit codes |
 
 **Key fixture design (`tests/conftest.py`):**
 - `limiter.enabled = False` disables slowapi for all non-rate-limit tests — avoids `request.state.view_rate_limit` errors
@@ -2276,6 +2329,10 @@ NM-GPT has full automated test coverage across both backend and frontend.
 | **Fire-and-forget Supabase logger** | Query logging runs in a daemon thread — it can fail without affecting students; zero latency impact on API responses |
 | **Keyword-based follow-up suggestions** | Simple and fast (no extra LLM call); 8 topic categories cover the most common question areas; pills appear only on the final non-streaming message |
 | **Controlled/uncontrolled `ChatContainer`** | `ChatContainer` works standalone (no props = uses internal state, existing tests need no changes) or controlled by `ChatLayout` (props override local state); pattern avoids prop-drilling tests |
+| **WhatsApp in-memory session history** | `whatsapp_sessions: dict[str, list[dict]]` keyed by phone number; stores last 6 messages per user; simple, zero-infra; sessions are lost on server restart (acceptable for MVP) |
+| **PYQ Drive uploader: upload-then-delete** | Each file is uploaded to Drive immediately after download and deleted locally — keeps disk usage near zero even for large scraping runs |
+| **PYQ upload registry (`pyqs_uploaded.txt`)** | A flat text file of relative paths already uploaded; lets scraper restarts skip already-done work without querying the Drive API for every file |
+| **PYQ acronym mapping in token scoring** | `_ACRONYMS` dict in `rag_pipeline.py` expands subject codes ("DBMS" → `["DATABASE", "MANAGEMENT"]`) before token matching; weighted exact (2pts) vs prefix (1pt); prevents missed results when students search by abbreviation |
 
 ---
 
