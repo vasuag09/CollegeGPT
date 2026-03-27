@@ -12,11 +12,13 @@ Usage:
   uvicorn backend.app:app --reload --port 8000
 """
 
+import asyncio
 import json
 import logging
 import time
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request, Form, Response
@@ -120,6 +122,12 @@ class QueryResponse(BaseModel):
     citations: list[Citation]
     pages: list[int]
     confidence: float
+    ui_action: Optional[str] = None
+
+
+class AttendanceRequest(BaseModel):
+    sap_id: str = Field(..., min_length=1, max_length=30)
+    sap_password: str = Field(..., min_length=1, max_length=100)
 
 
 # ── Endpoints ────────────────────────────────────────────────
@@ -204,6 +212,8 @@ async def query_stream(request: Request, body: QueryRequest):
             pipeline = get_pipeline()
             history = [msg.model_dump() for msg in body.history]
             for event in pipeline.query_stream(question=body.question, top_k=body.top_k, history=history):
+                if event.get("type") == "action":
+                    _log["type"] = "action"
                 if event.get("type") == "citations":
                     _log["confidence"] = event.get("confidence", 0.0)
                     has_citations = bool(event.get("citations"))
@@ -275,6 +285,31 @@ async def whatsapp_webhook(
     twiml.message(reply_text)
     
     return Response(content=str(twiml), media_type="application/xml")
+
+
+# ── Attendance ───────────────────────────────────────────────
+
+@app.post("/attendance")
+@limiter.limit("5/minute")
+async def get_attendance(request: Request, body: AttendanceRequest):
+    """Fetch student attendance from the SAP NetWeaver portal.
+
+    Credentials are used immediately and never stored or logged.
+    Returns subject-wise attendance percentages.
+    """
+    logger.info("Attendance fetch for sap_id=%s***", body.sap_id[:4])
+    from scripts.attendance_scraper import fetch_attendance
+    loop = asyncio.get_event_loop()
+    try:
+        subjects = await loop.run_in_executor(
+            None, fetch_attendance, body.sap_id, body.sap_password
+        )
+        return {"subjects": subjects, "error": None}
+    except RuntimeError as e:
+        return {"subjects": [], "error": str(e)}
+    except Exception as e:
+        logger.exception("Unexpected error in /attendance")
+        return {"subjects": [], "error": "An unexpected error occurred. Please try again."}
 
 
 # ── Admin Dashboard ──────────────────────────────────────────

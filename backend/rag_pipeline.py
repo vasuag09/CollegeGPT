@@ -53,6 +53,20 @@ from backend.llm_client import generate, generate_stream
 
 logger = logging.getLogger("nmgpt.pipeline")
 
+# ── Attendance detection ──────────────────────────────────────
+_ATTENDANCE_RE = re.compile(
+    r"\b(my\s+attendance|check\s+attendance|show\s+attendance|get\s+attendance|"
+    r"attendance\s+(percentage|report|status|details?)|"
+    r"how\s+many\s+classes\s+(have\s+i|did\s+i)|present\s+in\s+class(es)?|"
+    r"classes?\s+attended|sap\s+(attendance|portal))\b",
+    re.IGNORECASE,
+)
+
+_ATTENDANCE_RESPONSE = (
+    "I can fetch your real-time attendance from the SAP portal.\n"
+    "Please enter your SAP NetWeaver credentials below."
+)
+
 # ── PYQ detection ─────────────────────────────────────────────
 _PYQ_RE = re.compile(
     r"\b(pyqs?|previous\s+year|question\s+papers?|past\s+papers?|exam\s+papers?|old\s+papers?)\b",
@@ -332,6 +346,15 @@ class RAGPipeline:
                 "confidence": 1.0,
             }
 
+        if _ATTENDANCE_RE.search(question):
+            return {
+                "answer": _ATTENDANCE_RESPONSE,
+                "citations": [],
+                "pages": [],
+                "confidence": 1.0,
+                "ui_action": "attendance_form",
+            }
+
         if _PYQ_RE.search(question):
             papers = _search_papers(question)
             return {
@@ -394,6 +417,11 @@ class RAGPipeline:
         if _GREETING_PATTERNS.match(question):
             yield {"type": "token", "content": _GREETING_RESPONSE}
             yield {"type": "citations", "citations": [], "pages": [], "confidence": 1.0}
+            yield {"type": "done"}
+            return
+
+        if _ATTENDANCE_RE.search(question):
+            yield {"type": "action", "action": "attendance_form", "message": _ATTENDANCE_RESPONSE}
             yield {"type": "done"}
             return
 
