@@ -387,9 +387,9 @@ async def get_attendance_options(request: Request, body: AttendanceOptionsReques
         return {"options": options, "error": None}
     except RuntimeError as e:
         return {"options": None, "error": str(e)}
-    except Exception:
+    except Exception as e:
         logger.exception("Unexpected error in /attendance/options")
-        return {"options": None, "error": "An unexpected error occurred. Please try again."}
+        return {"options": None, "error": f"Unexpected error: {type(e).__name__}: {e}"}
 
 
 # ── Admin Dashboard ──────────────────────────────────────────
