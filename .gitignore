@@ -22,3 +22,8 @@ token.json
 # AI Agents
 .claude/
 .gemini/
+
+# Attendance scraper — local artifacts
+data/portal_inspection/
+Course Policy/
+ZSVKM_STUDENT_ATTENDANCE.pdf
