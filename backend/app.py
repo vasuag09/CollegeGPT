@@ -12,11 +12,13 @@ Usage:
   uvicorn backend.app:app --reload --port 8000
 """
 
+import asyncio
 import json
 import logging
 import time
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request, Form, Response
@@ -120,6 +122,26 @@ class QueryResponse(BaseModel):
     citations: list[Citation]
     pages: list[int]
     confidence: float
+    ui_action: Optional[str] = None
+
+
+class AttendanceRequest(BaseModel):
+    sap_id: str = Field(..., min_length=1, max_length=30)
+    sap_password: str = Field(..., min_length=1, max_length=100)
+    year_key: Optional[str] = None
+    semester_label: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
+class AttendanceOptionsRequest(BaseModel):
+    sap_id: str = Field(..., min_length=1, max_length=30)
+    sap_password: str = Field(..., min_length=1, max_length=100)
+
+
+class CourseHoursRequest(BaseModel):
+    subject: str = Field(..., min_length=1, max_length=200)
+    total_hours: int = Field(..., ge=1, le=500)
 
 
 # ── Endpoints ────────────────────────────────────────────────
@@ -204,6 +226,8 @@ async def query_stream(request: Request, body: QueryRequest):
             pipeline = get_pipeline()
             history = [msg.model_dump() for msg in body.history]
             for event in pipeline.query_stream(question=body.question, top_k=body.top_k, history=history):
+                if event.get("type") == "action":
+                    _log["type"] = "action"
                 if event.get("type") == "citations":
                     _log["confidence"] = event.get("confidence", 0.0)
                     has_citations = bool(event.get("citations"))
@@ -275,6 +299,88 @@ async def whatsapp_webhook(
     twiml.message(reply_text)
     
     return Response(content=str(twiml), media_type="application/xml")
+
+
+# ── Attendance ───────────────────────────────────────────────
+
+@app.post("/attendance")
+@limiter.limit("5/minute")
+async def get_attendance(request: Request, body: AttendanceRequest):
+    """Fetch student attendance from the SAP NetWeaver portal.
+
+    Credentials are used immediately and never stored or logged.
+    Returns subject-wise attendance percentages.
+    """
+    logger.info("Attendance fetch for sap_id=%s***", body.sap_id[:4])
+    from scripts.attendance_scraper import fetch_attendance
+    loop = asyncio.get_event_loop()
+    try:
+        subjects = await loop.run_in_executor(
+            None, fetch_attendance,
+            body.sap_id, body.sap_password,
+            body.year_key, body.semester_label,
+            body.start_date, body.end_date,
+        )
+        return {"subjects": subjects, "error": None}
+    except RuntimeError as e:
+        return {"subjects": [], "error": str(e)}
+    except Exception as e:
+        logger.exception("Unexpected error in /attendance")
+        return {"subjects": [], "error": "An unexpected error occurred. Please try again."}
+
+
+@app.post("/attendance/course-hours")
+async def save_course_hours(body: CourseHoursRequest):
+    """Persist manually entered course hours to Supabase (upsert by course name).
+
+    Uses an upsert so repeated saves for the same subject just update the row.
+    Falls back silently if Supabase is not configured.
+    """
+    import httpx
+    from backend.config import SUPABASE_KEY, SUPABASE_URL
+
+    course = body.subject.strip()
+
+    if SUPABASE_URL and SUPABASE_KEY:
+        url = f"{SUPABASE_URL}/rest/v1/course_hours"
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates,return=minimal",
+        }
+        payload = {"course": course, "total_hours": body.total_hours}
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.post(url, json=payload, headers=headers)
+        except Exception as exc:
+            logger.warning("Supabase upsert failed for course_hours: %s", exc)
+            return {"ok": False, "error": "Could not save — database unavailable."}
+
+    logger.info("Course hours saved: %s = %d hrs", course, body.total_hours)
+    return {"ok": True}
+
+
+@app.post("/attendance/options")
+@limiter.limit("10/minute")
+async def get_attendance_options(request: Request, body: AttendanceOptionsRequest):
+    """Fetch available academic years and semesters for the student.
+
+    Called before /attendance to populate the year/semester selectors in the UI.
+    """
+    logger.info("Attendance options fetch for sap_id=%s***", body.sap_id[:4])
+    from scripts.attendance_scraper import fetch_attendance_options
+    loop = asyncio.get_event_loop()
+    try:
+        options = await loop.run_in_executor(
+            None, fetch_attendance_options, body.sap_id, body.sap_password
+        )
+        return {"options": options, "error": None}
+    except RuntimeError as e:
+        return {"options": None, "error": str(e)}
+    except Exception:
+        logger.exception("Unexpected error in /attendance/options")
+        return {"options": None, "error": "An unexpected error occurred. Please try again."}
 
 
 # ── Admin Dashboard ──────────────────────────────────────────

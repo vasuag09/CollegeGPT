@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import CitationBlock from "./CitationBlock";
+import AttendanceForm from "./AttendanceForm";
 
 interface Citation {
   text: string;
@@ -23,6 +24,7 @@ interface MessageBubbleProps {
   onRetry?: () => void;
   suggestedFollowUps?: string[];
   onSuggestionClick?: (q: string) => void;
+  uiAction?: string;
 }
 
 export default function MessageBubble({
@@ -35,6 +37,7 @@ export default function MessageBubble({
   onRetry,
   suggestedFollowUps,
   onSuggestionClick,
+  uiAction,
 }: MessageBubbleProps) {
   const isUser = role === "user";
 
@@ -119,6 +122,11 @@ export default function MessageBubble({
                 </button>
               ))}
             </div>
+          )}
+
+          {/* Attendance form */}
+          {!isUser && !isError && uiAction === "attendance_form" && (
+            <AttendanceForm />
           )}
         </div>
       </div>

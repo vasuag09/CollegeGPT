@@ -37,9 +37,9 @@ from backend.config import CHUNKS_PATH, FAISS_INDEX_PATH, METADATA_PATH, INDEX_D
 from backend.embeddings import embed_texts
 
 
-BATCH_SIZE = 20   # Small batches to stay under free-tier rate limits
+BATCH_SIZE = 100  # Larger batches — paid API plan
 MAX_RETRIES = 5   # Max retries per batch on rate-limit errors
-BASE_DELAY = 25   # Base delay in seconds between batches
+BASE_DELAY = 1    # Minimal delay between batches — paid API plan
 
 
 def load_chunks(chunks_path: Path) -> list[dict]:

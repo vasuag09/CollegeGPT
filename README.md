@@ -79,7 +79,7 @@ python scripts/build_index.py
 
 `build_index.py` handles Gemini API rate limits automatically with batching and resume-on-interrupt.
 
-### 4. Start the backend
+  ### 4. Start the backend
 
 ```bash
 python -m uvicorn backend.app:app --host localhost --port 8000
