@@ -335,7 +335,7 @@ async def get_attendance(request: Request, body: AttendanceRequest):
         return {"subjects": [], "error": str(e)}
     except Exception as e:
         logger.exception("Unexpected error in /attendance")
-        return {"subjects": [], "error": "An unexpected error occurred. Please try again."}
+        return {"subjects": [], "error": f"Unexpected error: {type(e).__name__}: {e}"}
 
 
 @app.post("/attendance/course-hours")
