@@ -8,6 +8,17 @@ interface EmptyStateProps {
 
 const suggestions = [
   {
+    title: "Check My Attendance",
+    prompt: "check my attendance",
+    source: "SAP Portal",
+    color: "teal",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+  },
+  {
     title: "Attendance Policy",
     prompt: "What is the minimum attendance requirement for NMIMS students?",
     source: "SRB",
@@ -76,6 +87,7 @@ const suggestions = [
 ];
 
 const colorMap: Record<string, { bg: string; text: string; border: string; sourceBg: string; sourceText: string }> = {
+  teal:    { bg: "rgba(20,184,166,0.08)",  text: "#2dd4bf", border: "rgba(20,184,166,0.15)",  sourceBg: "rgba(20,184,166,0.1)",  sourceText: "#5eead4" },
   amber:   { bg: "rgba(245,158,11,0.08)",  text: "#f59e0b", border: "rgba(245,158,11,0.15)",  sourceBg: "rgba(245,158,11,0.1)",  sourceText: "#fbbf24" },
   violet:  { bg: "rgba(139,92,246,0.08)",  text: "#a78bfa", border: "rgba(139,92,246,0.15)",  sourceBg: "rgba(139,92,246,0.1)",  sourceText: "#c4b5fd" },
   rose:    { bg: "rgba(244,63,94,0.08)",   text: "#fb7185", border: "rgba(244,63,94,0.15)",   sourceBg: "rgba(244,63,94,0.1)",   sourceText: "#fda4af" },
