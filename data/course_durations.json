@@ -1,5 +1,15 @@
 [
   {
+    "code": "",
+    "course": "Quantum Physics",
+    "semester": "",
+    "lecture_hrs": 4,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "manual"
+  },
+  {
     "code": "701CI0C001",
     "course": "Environmental Science",
     "semester": "",
