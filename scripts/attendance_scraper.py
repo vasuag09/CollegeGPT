@@ -937,10 +937,14 @@ def _enrich_with_course_hours(subjects: list[dict]) -> list[dict]:
         if norm in dur_map:
             return dur_map[norm]
 
-        # 2. One is a substring of the other
+        # 2. One is a substring of the other — only when lengths are close
+        # (ratio ≥ 0.6) to avoid "physics" matching "quantum physics" or
+        # "mathematics" matching "applied engineering mathematics".
         for key, hours in dur_map.items():
             if norm in key or key in norm:
-                return hours
+                ratio = min(len(norm), len(key)) / max(len(norm), len(key))
+                if ratio >= 0.6:
+                    return hours
 
         # 3. Token-prefix match — each token pair must be mutual prefixes and
         #    both tokens must be ≥ 3 chars (prevents "e" matching "entrepreneurship")
