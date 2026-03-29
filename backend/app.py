@@ -313,13 +313,22 @@ async def get_attendance(request: Request, body: AttendanceRequest):
     """
     logger.info("Attendance fetch for sap_id=%s***", body.sap_id[:4])
     from scripts.attendance_scraper import fetch_attendance
+    from backend.query_logger import log_query
     loop = asyncio.get_event_loop()
+    t0 = time.time()
     try:
         subjects = await loop.run_in_executor(
             None, fetch_attendance,
             body.sap_id, body.sap_password,
             body.year_key, body.semester_label,
             body.start_date, body.end_date,
+        )
+        log_query(
+            question="[Attendance fetch]",
+            answer_type="attendance",
+            confidence=1.0,
+            latency_ms=int((time.time() - t0) * 1000),
+            ip=get_remote_address(request),
         )
         return {"subjects": subjects, "error": None}
     except RuntimeError as e:
