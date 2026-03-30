@@ -194,6 +194,12 @@ class _SapSession:
             if s.string and "Captcha" in s.string
         ]
 
+        logger.info(
+            "CAPTCHA scripts found: %d; first 400 chars: %r",
+            len(captcha_scripts),
+            captcha_scripts[0][:400] if captcha_scripts else "(none)",
+        )
+
         if captcha_scripts:
             code = self._run_captcha_js(captcha_scripts[0])
             if code:
@@ -249,16 +255,24 @@ var code = '';
         ctx = py_mini_racer.MiniRacer()
         try:
             ctx.eval(dom_stubs + script_src)
-            try:
-                ctx.eval("if (typeof Captcha === 'function') Captcha();")
-            except Exception:
-                pass
-            result = ctx.eval("(typeof window.code !== 'undefined' && window.code) ? window.code : code")
+        except Exception as exc:
+            logger.warning("py_mini_racer: error loading captcha JS: %s", exc)
+            return ""
+        try:
+            ctx.eval("if (typeof Captcha === 'function') Captcha();")
+        except Exception as exc:
+            logger.warning("py_mini_racer: error calling Captcha(): %s", exc)
+        try:
+            result = ctx.eval(
+                "(typeof window.code !== 'undefined' && window.code) ? window.code : "
+                "(typeof code !== 'undefined' ? code : '')"
+            )
+            logger.info("py_mini_racer result: %r", str(result)[:20])
             if result and str(result).strip():
-                logger.info("CAPTCHA solved via py_mini_racer: %r", str(result)[:6] + "***")
+                logger.info("CAPTCHA solved via py_mini_racer")
                 return str(result)
         except Exception as exc:
-            logger.warning("py_mini_racer captcha execution failed: %s", exc)
+            logger.warning("py_mini_racer: error reading window.code: %s", exc)
         return ""
 
     # ── Navigate to attendance WebDynpro frame ───────────────────────────────
