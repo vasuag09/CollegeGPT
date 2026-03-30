@@ -169,7 +169,12 @@ class _SapSession:
             str(resp.url)[:80], resp.status_code, resp.text[:300],
         )
 
-        if "logonuidfield" in resp.text:
+        # Use a DOM check (not a string search) — the portal home page may contain
+        # "logonuidfield" in its JavaScript source even after successful login.
+        # We check for the actual <input id="logonuidfield"> element, same as
+        # the old Playwright version did with page.query_selector("#logonuidfield").
+        login_soup = BeautifulSoup(resp.text, "lxml")
+        if login_soup.find("input", id="logonuidfield"):
             raise RuntimeError(
                 "SAP login failed — login form still visible after submission. "
                 "Check your SAP credentials. Do NOT retry automatically to avoid account lockout."
