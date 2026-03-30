@@ -164,6 +164,11 @@ class _SapSession:
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
 
+        logger.info(
+            "Login POST response: url=%s status=%d html_snippet=%r",
+            str(resp.url)[:80], resp.status_code, resp.text[:300],
+        )
+
         if "logonuidfield" in resp.text:
             raise RuntimeError(
                 "SAP login failed — login form still visible after submission. "
@@ -215,8 +220,15 @@ class _SapSession:
             logger.warning("py_mini_racer not installed — CAPTCHA JS execution skipped")
             return ""
 
-        # Minimal DOM stubs so canvas/document calls don't throw
+        # Minimal DOM stubs so canvas/document/navigator calls don't throw
         dom_stubs = """
+var navigator = {
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    language: 'en-US', platform: 'Win32', appName: 'Netscape',
+    appVersion: '5.0', cookieEnabled: true, onLine: true
+};
+var screen = { width: 1920, height: 1080, colorDepth: 24 };
+var location = { href: '', hostname: '', protocol: 'https:', search: '', hash: '' };
 var _ctx = {
     fillText: function(){}, measureText: function(){ return {width:50}; },
     fillRect: function(){}, clearRect: function(){}, beginPath: function(){},
@@ -228,7 +240,8 @@ var _ctx = {
 var _elem = { getContext: function(){ return _ctx; }, width: 200, height: 60, style: {} };
 var document = {
     getElementById: function(id){ return _elem; },
-    createElement: function(tag){ return _elem; }
+    createElement: function(tag){ return _elem; },
+    cookie: ''
 };
 var window = this;
 var code = '';
