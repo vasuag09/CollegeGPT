@@ -231,7 +231,10 @@ class _SapSession:
             logger.warning("py_mini_racer not installed — CAPTCHA JS execution skipped")
             return ""
 
-        # Minimal DOM stubs so canvas/document/navigator/Event calls don't throw
+        # Full DOM stubs — every API the SVKM captcha JS may call.
+        # Do NOT wrap the script in JS try{}catch{}: function declarations
+        # inside blocks are block-scoped in V8, so Captcha() would be invisible
+        # outside the try block. Instead, stub all APIs so nothing throws.
         dom_stubs = """
 var Event = function(type, init) { this.type = type || ''; };
 Event.prototype = { preventDefault: function(){}, stopPropagation: function(){},
@@ -248,42 +251,55 @@ var navigator = {
 var screen = { width: 1920, height: 1080, colorDepth: 24 };
 var location = { href: '', hostname: '', protocol: 'https:', search: '', hash: '' };
 var _ctx = {
-    fillText: function(){}, measureText: function(){ return {width:50}; },
-    fillRect: function(){}, clearRect: function(){}, beginPath: function(){},
-    arc: function(){}, fill: function(){}, stroke: function(){},
-    moveTo: function(){}, lineTo: function(){}, closePath: function(){},
+    fillText: function(){}, strokeText: function(){},
+    measureText: function(){ return {width:50}; },
+    fillRect: function(){}, clearRect: function(){}, strokeRect: function(){},
+    beginPath: function(){}, closePath: function(){},
+    arc: function(){}, arcTo: function(){},
+    fill: function(){}, stroke: function(){},
+    moveTo: function(){}, lineTo: function(){},
+    quadraticCurveTo: function(){}, bezierCurveTo: function(){},
+    rotate: function(){}, translate: function(){}, scale: function(){},
+    save: function(){}, restore: function(){},
+    createLinearGradient: function(){ return {addColorStop:function(){}}; },
     font: '', fillStyle: '', strokeStyle: '', lineWidth: 1,
+    globalAlpha: 1, textAlign: 'left', textBaseline: 'alphabetic',
     canvas: { width: 200, height: 60 }
 };
 var _elem = {
-    getContext: function(){ return _ctx; }, width: 200, height: 60, style: {},
-    innerHTML: '', value: '',
+    getContext: function(){ return _ctx; },
+    width: 200, height: 60, style: {}, id: '',
+    innerHTML: '', innerText: '', value: '',
     addEventListener: function(){}, removeEventListener: function(){},
-    dispatchEvent: function(){}
+    dispatchEvent: function(){},
+    appendChild: function(){}, removeChild: function(){},
+    setAttribute: function(){}, getAttribute: function(){ return ''; }
 };
 var document = {
     getElementById: function(id){ return _elem; },
     createElement: function(tag){ return _elem; },
+    createElementNS: function(ns, tag){ return _elem; },
     cookie: '',
     addEventListener: function(){}, removeEventListener: function(){}
 };
 var window = this;
 var code = '';
 """
-        # Wrap the captcha script in a JS try-catch so that even if a later
-        # line throws (e.g. dispatchEvent at line 98), window.code set earlier
-        # in the same function is still readable after eval completes.
-        wrapped_src = "try { " + script_src + " } catch(e) {}"
         ctx = py_mini_racer.MiniRacer()
         try:
-            ctx.eval(dom_stubs + wrapped_src)
+            ctx.eval(dom_stubs + script_src)
         except Exception as exc:
             logger.warning("py_mini_racer: error loading captcha JS: %s", exc)
             return ""
+        # Trigger via window.onload (same as the browser) then also call directly
         try:
-            ctx.eval("try { if (typeof Captcha === 'function') Captcha(); } catch(e) {}")
+            ctx.eval("if (typeof window.onload === 'function') window.onload();")
         except Exception as exc:
-            logger.warning("py_mini_racer: error calling Captcha(): %s", exc)
+            logger.warning("py_mini_racer: window.onload threw: %s", exc)
+        try:
+            ctx.eval("if (typeof Captcha === 'function') Captcha();")
+        except Exception as exc:
+            logger.warning("py_mini_racer: Captcha() threw: %s", exc)
         try:
             result = ctx.eval(
                 "(typeof window.code !== 'undefined' && window.code) ? window.code : "
