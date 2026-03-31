@@ -331,23 +331,41 @@ var code = '';
         the home HTML for links does not work — we go straight to the app.
         Sets self._frame_url, self._wd_html, self._secure_id, self._app_name.
         """
-        # Derive base origin from portal URL (e.g. https://sdc-sppap1.svkm.ac.in:50001)
         from urllib.parse import urlparse
         parsed = urlparse(self._home_url)
         base = f"{parsed.scheme}://{parsed.netloc}"
 
-        # SAP WebDynpro dispatcher URL — same pattern as every other app on this portal
-        # e.g. /webdynpro/dispatcher/sap.com/tc~sec~ume~wd~enduser/LogonHelpApp
-        wd_url = f"{base}/webdynpro/dispatcher/sap.com/ZSVKM_STUDENT_ATTENDANCE2"
-        logger.info("Navigating directly to attendance WebDynpro: %s", wd_url)
+        # Try known WebDynpro dispatcher namespaces for Z* customer apps.
+        # sap.com is for SAP-standard components; local/svkm* is for customer Z* apps.
+        candidate_urls = [
+            f"{base}/webdynpro/dispatcher/local/ZSVKM_STUDENT_ATTENDANCE2",
+            f"{base}/webdynpro/dispatcher/sap.com/ZSVKM_STUDENT_ATTENDANCE2",
+        ]
 
-        resp = self._client.get(wd_url)
-        logger.info(
-            "WebDynpro direct GET: url=%s status=%s snippet=%r",
-            str(resp.url)[:120],
-            resp.status_code,
-            resp.text[:300],
-        )
+        resp = None
+        wd_url = None
+        for url in candidate_urls:
+            logger.info("Trying WebDynpro URL: %s", url)
+            r = self._client.get(url)
+            logger.info("  -> status=%s url=%s", r.status_code, str(r.url)[:120])
+            if r.status_code == 200:
+                resp = r
+                wd_url = url
+                break
+
+        if resp is None or resp.status_code != 200:
+            # Log all attempts and raise
+            logger.info(
+                "All WebDynpro dispatcher URLs returned non-200. "
+                "Last response snippet: %r",
+                (resp.text[:400] if resp else "no response"),
+            )
+            raise RuntimeError(
+                "Could not reach the attendance WebDynpro app (dispatcher returned non-200). "
+                "The portal URL or namespace may have changed — please try again."
+            )
+
+        logger.info("WebDynpro GET succeeded: url=%s snippet=%r", str(resp.url)[:120], resp.text[:300])
 
         if "ZSVKM_STUDENT_ATTENDANCE2" in str(resp.url):
             self._frame_url = str(resp.url)
@@ -371,10 +389,9 @@ var code = '';
                 self._frame_url = str(resp2.url)
                 self._wd_html = resp2.text
             else:
-                # Log full response for diagnosis
                 all_iframes = soup2.find_all(["iframe", "frame"])
                 logger.info(
-                    "WebDynpro GET did not land on attendance app. "
+                    "WebDynpro 200 response but attendance app not found. "
                     "iframes=%s  url=%s  html=%r",
                     [fr.get("src", "")[:80] for fr in all_iframes],
                     str(resp.url)[:120],
