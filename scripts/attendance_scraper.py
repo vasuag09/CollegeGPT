@@ -175,14 +175,16 @@ class _SapSession:
         # the old Playwright version did with page.query_selector("#logonuidfield").
         login_soup = BeautifulSoup(resp.text, "lxml")
         title_el = login_soup.find("title")
-        page_title = title_el.get_text(strip=True) if title_el else "(no title)"
-        has_login_input = login_soup.find("input", id="logonuidfield") is not None
-        logger.info(
-            "Login result: title=%r logonuidfield_in_dom=%s", page_title[:80], has_login_input
-        )
-        if has_login_input:
+        page_title = title_el.get_text(strip=True) if title_el else ""
+        # The portal home page title is "SAP NetWeaver Portal".
+        # The login page title does NOT contain "NetWeaver Portal".
+        # The portal home page also contains <input id="logonuidfield"> (embedded
+        # logout widget), so checking for that element is a false positive.
+        logged_in = "NetWeaver Portal" in page_title or "SAP Portal" in page_title
+        logger.info("Login result: title=%r logged_in=%s", page_title[:80], logged_in)
+        if not logged_in:
             raise RuntimeError(
-                "SAP login failed — login form still visible after submission. "
+                "SAP login failed — credentials or captcha rejected. "
                 "Check your SAP credentials. Do NOT retry automatically to avoid account lockout."
             )
 
