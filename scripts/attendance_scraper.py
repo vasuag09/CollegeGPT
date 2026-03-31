@@ -345,6 +345,21 @@ var code = '';
                     break
 
         if not link or not link.get("href"):
+            # Diagnostic: log all anchors and iframes to understand portal structure
+            all_anchors = soup.find_all("a", href=True)
+            logger.info(
+                "Portal home: %d anchors found. Sample hrefs: %s",
+                len(all_anchors),
+                [a["href"][:80] for a in all_anchors[:10]],
+            )
+            all_iframes = soup.find_all("iframe")
+            logger.info(
+                "Portal home: %d iframes found. src values: %s",
+                len(all_iframes),
+                [fr.get("src", "")[:100] for fr in all_iframes[:5]],
+            )
+            # Log first 500 chars of HTML to understand structure
+            logger.info("Portal home HTML snippet: %s", html[:500])
             raise RuntimeError(
                 "Attendance link not found in portal home page. "
                 "The portal layout may have changed — please try again."
