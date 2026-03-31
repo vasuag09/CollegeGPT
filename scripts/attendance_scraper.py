@@ -192,6 +192,12 @@ class _SapSession:
         self._home_url = str(resp.url)
         logger.info("SAP login successful for %s***", sap_id[:4])
 
+        # Diagnostic: scan home HTML for any WebDynpro or ZSVKM URLs embedded in JS
+        wd_hits = re.findall(r"['\"/](webdynpro/[^\s'\"<>]{5,})['\"/]", resp.text)
+        zsvkm_hits = re.findall(r"['\"/]([^\s'\"<>]*ZSVKM[^\s'\"<>]*)['\"/]", resp.text)
+        logger.info("Home HTML webdynpro URL patterns: %s", list(dict.fromkeys(wd_hits))[:10])
+        logger.info("Home HTML ZSVKM URL patterns: %s", list(dict.fromkeys(zsvkm_hits))[:10])
+
     def _extract_captcha(self, html: str) -> str:
         """
         Extract the CAPTCHA code from the login page JS without a browser.
