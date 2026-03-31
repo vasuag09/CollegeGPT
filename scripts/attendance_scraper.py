@@ -270,14 +270,18 @@ var document = {
 var window = this;
 var code = '';
 """
+        # Wrap the captcha script in a JS try-catch so that even if a later
+        # line throws (e.g. dispatchEvent at line 98), window.code set earlier
+        # in the same function is still readable after eval completes.
+        wrapped_src = "try { " + script_src + " } catch(e) {}"
         ctx = py_mini_racer.MiniRacer()
         try:
-            ctx.eval(dom_stubs + script_src)
+            ctx.eval(dom_stubs + wrapped_src)
         except Exception as exc:
             logger.warning("py_mini_racer: error loading captcha JS: %s", exc)
             return ""
         try:
-            ctx.eval("if (typeof Captcha === 'function') Captcha();")
+            ctx.eval("try { if (typeof Captcha === 'function') Captcha(); } catch(e) {}")
         except Exception as exc:
             logger.warning("py_mini_racer: error calling Captcha(): %s", exc)
         try:
