@@ -192,11 +192,17 @@ class _SapSession:
         self._home_url = str(resp.url)
         logger.info("SAP login successful for %s***", sap_id[:4])
 
-        # Diagnostic: scan home HTML for any WebDynpro or ZSVKM URLs embedded in JS
+        # Diagnostic: scan home HTML for embedded navigation / iView URLs
         wd_hits = re.findall(r"['\"/](webdynpro/[^\s'\"<>]{5,})['\"/]", resp.text)
         zsvkm_hits = re.findall(r"['\"/]([^\s'\"<>]*ZSVKM[^\s'\"<>]*)['\"/]", resp.text)
-        logger.info("Home HTML webdynpro URL patterns: %s", list(dict.fromkeys(wd_hits))[:10])
-        logger.info("Home HTML ZSVKM URL patterns: %s", list(dict.fromkeys(zsvkm_hits))[:10])
+        prt_hits = re.findall(r"['\"/](irj/[^\s'\"<>]{5,})['\"/]", resp.text)
+        nav_hits = re.findall(r"['\"/]([^\s'\"<>]*[Aa]ttendance[^\s'\"<>]*)['\"/]", resp.text)
+        logger.info("Home HTML webdynpro patterns: %s", list(dict.fromkeys(wd_hits))[:10])
+        logger.info("Home HTML ZSVKM patterns: %s", list(dict.fromkeys(zsvkm_hits))[:10])
+        logger.info("Home HTML irj/ patterns: %s", list(dict.fromkeys(prt_hits))[:15])
+        logger.info("Home HTML attendance patterns: %s", list(dict.fromkeys(nav_hits))[:10])
+        # Also log a larger slice to catch HTMLB ur_Nav_Items or similar
+        logger.info("Home HTML [2000:4000]: %r", resp.text[2000:4000])
 
     def _extract_captcha(self, html: str) -> str:
         """
