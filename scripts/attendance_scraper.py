@@ -231,8 +231,15 @@ class _SapSession:
             logger.warning("py_mini_racer not installed — CAPTCHA JS execution skipped")
             return ""
 
-        # Minimal DOM stubs so canvas/document/navigator calls don't throw
+        # Minimal DOM stubs so canvas/document/navigator/Event calls don't throw
         dom_stubs = """
+var Event = function(type, init) { this.type = type || ''; };
+Event.prototype = { preventDefault: function(){}, stopPropagation: function(){},
+                    stopImmediatePropagation: function(){} };
+var CustomEvent = Event;
+var MouseEvent = Event;
+var KeyboardEvent = Event;
+var UIEvent = Event;
 var navigator = {
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     language: 'en-US', platform: 'Win32', appName: 'Netscape',
@@ -248,11 +255,17 @@ var _ctx = {
     font: '', fillStyle: '', strokeStyle: '', lineWidth: 1,
     canvas: { width: 200, height: 60 }
 };
-var _elem = { getContext: function(){ return _ctx; }, width: 200, height: 60, style: {} };
+var _elem = {
+    getContext: function(){ return _ctx; }, width: 200, height: 60, style: {},
+    innerHTML: '', value: '',
+    addEventListener: function(){}, removeEventListener: function(){},
+    dispatchEvent: function(){}
+};
 var document = {
     getElementById: function(id){ return _elem; },
     createElement: function(tag){ return _elem; },
-    cookie: ''
+    cookie: '',
+    addEventListener: function(){}, removeEventListener: function(){}
 };
 var window = this;
 var code = '';
