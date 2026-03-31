@@ -280,7 +280,8 @@ var document = {
     createElement: function(tag){ return _elem; },
     createElementNS: function(ns, tag){ return _elem; },
     cookie: '',
-    addEventListener: function(){}, removeEventListener: function(){}
+    addEventListener: function(){}, removeEventListener: function(){},
+    captureEvents: function(){}, releaseEvents: function(){}
 };
 var window = this;
 var code = '';
