@@ -326,92 +326,64 @@ var code = '';
 
     def navigate_to_attendance(self) -> None:
         """
-        Find and GET the 'Attendance Display for Students' iView.
+        Navigate directly to the attendance WebDynpro app via dispatcher URL.
+        The SAP portal renders its navigation menu via JavaScript, so scraping
+        the home HTML for links does not work — we go straight to the app.
         Sets self._frame_url, self._wd_html, self._secure_id, self._app_name.
         """
-        html = self._home_html
-        soup = BeautifulSoup(html, "lxml")
+        # Derive base origin from portal URL (e.g. https://sdc-sppap1.svkm.ac.in:50001)
+        from urllib.parse import urlparse
+        parsed = urlparse(self._home_url)
+        base = f"{parsed.scheme}://{parsed.netloc}"
 
-        # Find link by text
-        link = soup.find("a", string=re.compile(r"Attendance\s+Display", re.I))
-        if not link:
-            # Try href attribute containing attendance keywords
-            link = soup.find("a", href=re.compile(r"attendance|ZSVKM_STUDENT_ATTENDANCE", re.I))
-        if not link:
-            # Try any element with matching text (portal may use <span> inside <a>)
-            for el in soup.find_all("a"):
-                if re.search(r"Attendance\s+Display", el.get_text(), re.I):
-                    link = el
-                    break
+        # SAP WebDynpro dispatcher URL — same pattern as every other app on this portal
+        # e.g. /webdynpro/dispatcher/sap.com/tc~sec~ume~wd~enduser/LogonHelpApp
+        wd_url = f"{base}/webdynpro/dispatcher/sap.com/ZSVKM_STUDENT_ATTENDANCE2"
+        logger.info("Navigating directly to attendance WebDynpro: %s", wd_url)
 
-        if not link or not link.get("href"):
-            # Diagnostic: log all anchors and iframes to understand portal structure
-            all_anchors = soup.find_all("a", href=True)
-            logger.info(
-                "Portal home: %d anchors found. Sample hrefs: %s",
-                len(all_anchors),
-                [a["href"][:80] for a in all_anchors[:10]],
-            )
-            all_iframes = soup.find_all("iframe")
-            logger.info(
-                "Portal home: %d iframes found. src values: %s",
-                len(all_iframes),
-                [fr.get("src", "")[:100] for fr in all_iframes[:5]],
-            )
-            # Log first 500 chars of HTML to understand structure
-            logger.info("Portal home HTML snippet: %s", html[:500])
-            raise RuntimeError(
-                "Attendance link not found in portal home page. "
-                "The portal layout may have changed — please try again."
-            )
+        resp = self._client.get(wd_url)
+        logger.info(
+            "WebDynpro direct GET: url=%s status=%s snippet=%r",
+            str(resp.url)[:120],
+            resp.status_code,
+            resp.text[:300],
+        )
 
-        href = link["href"]
-        if href.startswith("javascript"):
-            # Extract URL from onclick or data attributes
-            onclick = link.get("onclick", "")
-            m = re.search(r"['\"]([^'\"]*ZSVKM_STUDENT_ATTENDANCE[^'\"]*)['\"]", onclick)
-            if not m:
-                raise RuntimeError(
-                    "Attendance link uses JavaScript navigation — cannot extract URL. "
-                    "Please report this issue."
-                )
-            href = m.group(1)
-
-        if not href.startswith("http"):
-            href = urljoin(self._home_url, href)
-
-        logger.info("Navigating to attendance iView: %s", href[:100])
-        resp = self._client.get(href)
-
-        # The response may be the WebDynpro frame directly, or a portal page with an iframe
         if "ZSVKM_STUDENT_ATTENDANCE2" in str(resp.url):
             self._frame_url = str(resp.url)
             self._wd_html = resp.text
         else:
-            # Look for iframe pointing to the WebDynpro app
+            # The dispatcher may redirect to a portal page containing an iframe
             soup2 = BeautifulSoup(resp.text, "lxml")
-            iframe = soup2.find("iframe", src=re.compile(r"ZSVKM_STUDENT_ATTENDANCE2"))
+            iframe = soup2.find("iframe", src=re.compile(r"ZSVKM_STUDENT_ATTENDANCE2", re.I))
             if not iframe:
-                # Try any frame/iframe
                 for fr in soup2.find_all(["iframe", "frame"]):
                     src = fr.get("src", "")
-                    if "webdynpro" in src.lower() or "ZSVKM" in src:
+                    if "webdynpro" in src.lower() or "ZSVKM" in src.upper():
                         iframe = fr
                         break
 
-            if not iframe:
-                raise RuntimeError(
-                    "Attendance WebDynpro frame not found in iView page. "
-                    "The portal layout may have changed — please try again."
+            if iframe:
+                src = iframe["src"]
+                if not src.startswith("http"):
+                    src = urljoin(str(resp.url), src)
+                resp2 = self._client.get(src)
+                self._frame_url = str(resp2.url)
+                self._wd_html = resp2.text
+            else:
+                # Log full response for diagnosis
+                all_iframes = soup2.find_all(["iframe", "frame"])
+                logger.info(
+                    "WebDynpro GET did not land on attendance app. "
+                    "iframes=%s  url=%s  html=%r",
+                    [fr.get("src", "")[:80] for fr in all_iframes],
+                    str(resp.url)[:120],
+                    resp.text[:600],
                 )
-
-            src = iframe["src"]
-            if not src.startswith("http"):
-                src = urljoin(str(resp.url), src)
-
-            resp2 = self._client.get(src)
-            self._frame_url = str(resp2.url)
-            self._wd_html = resp2.text
+                raise RuntimeError(
+                    "Could not reach the attendance WebDynpro app. "
+                    "The portal may require additional navigation — please try again."
+                )
 
         self._parse_wd_state(self._wd_html)
         logger.info("Attendance frame loaded: %s", self._frame_url[:80])
