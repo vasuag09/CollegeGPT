@@ -174,7 +174,13 @@ class _SapSession:
         # We check for the actual <input id="logonuidfield"> element, same as
         # the old Playwright version did with page.query_selector("#logonuidfield").
         login_soup = BeautifulSoup(resp.text, "lxml")
-        if login_soup.find("input", id="logonuidfield"):
+        title_el = login_soup.find("title")
+        page_title = title_el.get_text(strip=True) if title_el else "(no title)"
+        has_login_input = login_soup.find("input", id="logonuidfield") is not None
+        logger.info(
+            "Login result: title=%r logonuidfield_in_dom=%s", page_title[:80], has_login_input
+        )
+        if has_login_input:
             raise RuntimeError(
                 "SAP login failed — login form still visible after submission. "
                 "Check your SAP credentials. Do NOT retry automatically to avoid account lockout."
