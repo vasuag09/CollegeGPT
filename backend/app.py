@@ -41,6 +41,7 @@ from backend.config import (
     SUPABASE_KEY,
     SUPABASE_URL,
 )
+from backend.attendance_service import lifespan, router as attendance_router
 from backend.query_logger import log_query
 
 # ── Logging ──────────────────────────────────────────────────
@@ -58,6 +59,7 @@ app = FastAPI(
     title="NM-GPT API",
     description="Campus Policy AI Assistant – answers student questions using the Student Resource Book",
     version="1.0.0",
+    lifespan=lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -70,6 +72,8 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "X-Admin-Password"],
 )
+
+app.include_router(attendance_router)
 
 # ── Lazy-load the RAG pipeline ──────────────────────────────
 _pipeline = None
@@ -125,20 +129,7 @@ class QueryResponse(BaseModel):
     ui_action: Optional[str] = None
 
 
-class AttendanceRequest(BaseModel):
-    sap_id: str = Field(..., min_length=1, max_length=30)
-    sap_password: str = Field(..., min_length=1, max_length=100)
-    year_key: Optional[str] = None
-    semester_label: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-
-
-class AttendanceOptionsRequest(BaseModel):
-    sap_id: str = Field(..., min_length=1, max_length=30)
-    sap_password: str = Field(..., min_length=1, max_length=100)
-
-
+# AttendanceRequest and AttendanceOptionsRequest models are now in backend/attendance_service.py
 class CourseHoursRequest(BaseModel):
     subject: str = Field(..., min_length=1, max_length=200)
     total_hours: int = Field(..., ge=1, le=500)
@@ -303,40 +294,8 @@ async def whatsapp_webhook(
 
 # ── Attendance ───────────────────────────────────────────────
 
-@app.post("/attendance")
-@limiter.limit("5/minute")
-async def get_attendance(request: Request, body: AttendanceRequest):
-    """Fetch student attendance from the SAP NetWeaver portal.
-
-    Credentials are used immediately and never stored or logged.
-    Returns subject-wise attendance percentages.
-    """
-    logger.info("Attendance fetch for sap_id=%s***", body.sap_id[:4])
-    from scripts.attendance_scraper import fetch_attendance
-    from backend.query_logger import log_query
-    loop = asyncio.get_event_loop()
-    t0 = time.time()
-    try:
-        subjects = await loop.run_in_executor(
-            None, fetch_attendance,
-            body.sap_id, body.sap_password,
-            body.year_key, body.semester_label,
-            body.start_date, body.end_date,
-        )
-        log_query(
-            question="[Attendance fetch]",
-            answer_type="attendance",
-            confidence=1.0,
-            latency_ms=int((time.time() - t0) * 1000),
-            ip=get_remote_address(request),
-        )
-        return {"subjects": subjects, "error": None}
-    except RuntimeError as e:
-        return {"subjects": [], "error": str(e)}
-    except Exception as e:
-        logger.exception("Unexpected error in /attendance")
-        return {"subjects": [], "error": f"Unexpected error: {type(e).__name__}: {e}"}
-
+# Attendance service is now handled by the attendance_router in backend/attendance_service.py
+# which provides a managed queue and caching layer.
 
 @app.post("/attendance/course-hours")
 async def save_course_hours(body: CourseHoursRequest):
@@ -368,28 +327,6 @@ async def save_course_hours(body: CourseHoursRequest):
 
     logger.info("Course hours saved: %s = %d hrs", course, body.total_hours)
     return {"ok": True}
-
-
-@app.post("/attendance/options")
-@limiter.limit("10/minute")
-async def get_attendance_options(request: Request, body: AttendanceOptionsRequest):
-    """Fetch available academic years and semesters for the student.
-
-    Called before /attendance to populate the year/semester selectors in the UI.
-    """
-    logger.info("Attendance options fetch for sap_id=%s***", body.sap_id[:4])
-    from scripts.attendance_scraper import fetch_attendance_options
-    loop = asyncio.get_event_loop()
-    try:
-        options = await loop.run_in_executor(
-            None, fetch_attendance_options, body.sap_id, body.sap_password
-        )
-        return {"options": options, "error": None}
-    except RuntimeError as e:
-        return {"options": None, "error": str(e)}
-    except Exception as e:
-        logger.exception("Unexpected error in /attendance/options")
-        return {"options": None, "error": f"Unexpected error: {type(e).__name__}: {e}"}
 
 
 # ── Admin Dashboard ──────────────────────────────────────────
