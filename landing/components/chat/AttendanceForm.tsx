@@ -71,6 +71,9 @@ export default function AttendanceForm() {
   // Inline field errors
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  // Polling State
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
   // ── Step 1 → 2: fetch options ─────────────────────────────────
   const handleCredentials = async (e: React.SyntheticEvent) => {
     e.preventDefault();
@@ -133,6 +136,7 @@ export default function AttendanceForm() {
     setFieldErrors({});
     setIsLoading(true);
     setError(null);
+    setStatusMessage(null);
     const t0 = Date.now();
     try {
       const res  = await fetch(`${API_BASE}/attendance`, {
@@ -140,7 +144,7 @@ export default function AttendanceForm() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           sap_id:         sapId.trim(),
-          sap_password:   password,          // re-entered in step 2 for security
+          password:       password,          // Backend expects 'password'
           year_key:       selectedYear || null,
           semester_label: selectedSem  || null,
           start_date:     startDate    || null,
@@ -148,15 +152,70 @@ export default function AttendanceForm() {
         }),
       });
       const data = await res.json();
-      if (data.error) { setError(data.error); return; }
-      setFetchSecs(Math.round((Date.now() - t0) / 1000));
-      setFetchedAt(new Date().toLocaleTimeString());
-      setSubjects(data.subjects);
-      setStep("results");
+      if (data.error) { setError(data.error); setIsLoading(false); return; }
+
+      // New API contract: { status: "ok"|"error"|"queued"|"processing", data, queue_position }
+      if (data.status === "error") {
+        const msg = data.data?.error || "Failed to fetch attendance.";
+        setError(msg);
+        setIsLoading(false);
+        return;
+      }
+
+      // Handle Asynchronous/Queued response
+      if (data.status === "queued" || data.status === "processing") {
+        setStatusMessage(data.status === "queued" ? `Queued (Pos: ${data.queue_position})` : "Processing...");
+        
+        const poll = setInterval(async () => {
+          try {
+            const sRes  = await fetch(`${API_BASE}/attendance/status/${sapId.trim()}`);
+            const sData = await sRes.json();
+            
+            if (sData.status === "ok") {
+              clearInterval(poll);
+              setSubjects(sData.subjects);
+              setFetchSecs(Math.round((Date.now() - t0) / 1000));
+              setFetchedAt(new Date().toLocaleTimeString());
+              setStep("results");
+              setIsLoading(false);
+              setStatusMessage(null);
+            } else if (sData.status === "error") {
+              clearInterval(poll);
+              setError(sData.error || "Failed to fetch attendance.");
+              setIsLoading(false);
+              setStatusMessage(null);
+            } else {
+              setStatusMessage(sData.status === "processing" ? "Scraping your portal..." : `In Queue (Pos: ${sData.queue_position})`);
+            }
+          } catch (err) {
+            console.error("Polling error:", err);
+          }
+        }, 3000);
+        return; 
+      }
+
+      // Immediate cache hit / completed response
+      if (data.status === "ok" && Array.isArray(data.data)) {
+        setFetchSecs(Math.round((Date.now() - t0) / 1000));
+        setFetchedAt(new Date().toLocaleTimeString());
+        setSubjects(data.data);
+        setStep("results");
+        setIsLoading(false);
+        return;
+      }
+
+      // Legacy direct success handle
+      if (data.subjects) {
+        setFetchSecs(Math.round((Date.now() - t0) / 1000));
+        setFetchedAt(new Date().toLocaleTimeString());
+        setSubjects(data.subjects);
+        setStep("results");
+        setIsLoading(false);
+      }
     } catch {
       setError("Could not connect to the server.");
-    } finally {
       setIsLoading(false);
+    } finally {
       setPassword("");
     }
   };
@@ -432,7 +491,7 @@ export default function AttendanceForm() {
           <button type="submit"
             disabled={isLoading || !password || !selectedYear || !selectedSem}
             className="flex-1 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary text-sm font-medium hover:bg-primary/20 hover:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2">
-            {isLoading ? <><Spinner /> Fetching… (may take 30–60s)</> : "Get Attendance"}
+            {isLoading ? <><Spinner /> {statusMessage || "Fetching…"}</> : "Get Attendance"}
           </button>
         </div>
       </motion.form>
