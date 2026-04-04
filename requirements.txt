@@ -27,8 +27,11 @@ streamlit==1.41.1
 pytest==8.3.5
 pytest-asyncio==0.24.0
 
-# PYQ Scraper
+# PYQ Scraper (playwright kept for pyq_scraper.py only — attendance_scraper uses httpx)
 playwright==1.49.1
+py-mini-racer>=0.6.0
+lxml>=5.0
+beautifulsoup4>=4.12
 google-api-python-client==2.154.0
 google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.1

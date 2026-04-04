@@ -12,11 +12,13 @@ Usage:
   uvicorn backend.app:app --reload --port 8000
 """
 
+import asyncio
 import json
 import logging
 import time
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request, Form, Response
@@ -39,6 +41,7 @@ from backend.config import (
     SUPABASE_KEY,
     SUPABASE_URL,
 )
+from backend.attendance_service import lifespan, router as attendance_router
 from backend.query_logger import log_query
 
 # ── Logging ──────────────────────────────────────────────────
@@ -56,6 +59,7 @@ app = FastAPI(
     title="NM-GPT API",
     description="Campus Policy AI Assistant – answers student questions using the Student Resource Book",
     version="1.0.0",
+    lifespan=lifespan,
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -68,6 +72,8 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "X-Admin-Password"],
 )
+
+app.include_router(attendance_router)
 
 # ── Lazy-load the RAG pipeline ──────────────────────────────
 _pipeline = None
@@ -120,6 +126,13 @@ class QueryResponse(BaseModel):
     citations: list[Citation]
     pages: list[int]
     confidence: float
+    ui_action: Optional[str] = None
+
+
+# AttendanceRequest and AttendanceOptionsRequest models are now in backend/attendance_service.py
+class CourseHoursRequest(BaseModel):
+    subject: str = Field(..., min_length=1, max_length=200)
+    total_hours: int = Field(..., ge=1, le=500)
 
 
 # ── Endpoints ────────────────────────────────────────────────
@@ -204,6 +217,8 @@ async def query_stream(request: Request, body: QueryRequest):
             pipeline = get_pipeline()
             history = [msg.model_dump() for msg in body.history]
             for event in pipeline.query_stream(question=body.question, top_k=body.top_k, history=history):
+                if event.get("type") == "action":
+                    _log["type"] = "action"
                 if event.get("type") == "citations":
                     _log["confidence"] = event.get("confidence", 0.0)
                     has_citations = bool(event.get("citations"))
@@ -275,6 +290,43 @@ async def whatsapp_webhook(
     twiml.message(reply_text)
     
     return Response(content=str(twiml), media_type="application/xml")
+
+
+# ── Attendance ───────────────────────────────────────────────
+
+# Attendance service is now handled by the attendance_router in backend/attendance_service.py
+# which provides a managed queue and caching layer.
+
+@app.post("/attendance/course-hours")
+async def save_course_hours(body: CourseHoursRequest):
+    """Persist manually entered course hours to Supabase (upsert by course name).
+
+    Uses an upsert so repeated saves for the same subject just update the row.
+    Falls back silently if Supabase is not configured.
+    """
+    import httpx
+    from backend.config import SUPABASE_KEY, SUPABASE_URL
+
+    course = body.subject.strip()
+
+    if SUPABASE_URL and SUPABASE_KEY:
+        url = f"{SUPABASE_URL}/rest/v1/course_hours"
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates,return=minimal",
+        }
+        payload = {"course": course, "total_hours": body.total_hours}
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.post(url, json=payload, headers=headers)
+        except Exception as exc:
+            logger.warning("Supabase upsert failed for course_hours: %s", exc)
+            return {"ok": False, "error": "Could not save — database unavailable."}
+
+    logger.info("Course hours saved: %s = %d hrs", course, body.total_hours)
+    return {"ok": True}
 
 
 # ── Admin Dashboard ──────────────────────────────────────────

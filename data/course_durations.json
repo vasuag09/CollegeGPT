@@ -1,0 +1,1142 @@
+[
+  {
+    "code": "",
+    "course": "Quantum Physics",
+    "semester": "",
+    "lecture_hrs": 4,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "manual"
+  },
+  {
+    "code": "701CI0C001",
+    "course": "Environmental Science",
+    "semester": "",
+    "lecture_hrs": 1,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 30,
+    "source": "Semester_-_5_Ipu4ssdRNg.pdf"
+  },
+  {
+    "code": "701CO0C003",
+    "course": "Electrical and Computer Workshop",
+    "semester": "",
+    "lecture_hrs": 0,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_-_1_MS9CHxbnM9.pdf"
+  },
+  {
+    "code": "701CO0C018",
+    "course": "Programming for Problem Solving",
+    "semester": "",
+    "lecture_hrs": 2,
+    "practical_hrs": 4,
+    "tutorial_hrs": 0,
+    "total_hours": 90,
+    "source": "Semester_-_5_Ipu4ssdRNg.pdf"
+  },
+  {
+    "code": "701EE0C001",
+    "course": "Technical Project",
+    "semester": "",
+    "lecture_hrs": 0,
+    "practical_hrs": 8,
+    "tutorial_hrs": 0,
+    "total_hours": 120,
+    "source": "Semester_-_6_98QKLASN14.pdf"
+  },
+  {
+    "code": "701IT0C001",
+    "course": "Multimedia and Animation",
+    "semester": "",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_-_3_m7Hsi8HVR5.pdf"
+  },
+  {
+    "code": "701ME0C004",
+    "course": "Mechanical Workshop",
+    "semester": "",
+    "lecture_hrs": 0,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_-_2_eXtMR025k6.pdf"
+  },
+  {
+    "code": "701TS0C001",
+    "course": "Entrepreneurship",
+    "semester": "",
+    "lecture_hrs": 2,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_-_5_OcUjTnTDff.pdf"
+  },
+  {
+    "code": "702BS0C023",
+    "course": "Statistics, Probability & Calculus",
+    "semester": "",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 60,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "702BS0C063",
+    "course": "Interpersonal Skills",
+    "semester": "",
+    "lecture_hrs": 0,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_6_qFNEMDdMzv.pdf"
+  },
+  {
+    "code": "702CI0I003",
+    "course": "Interior Design",
+    "semester": "",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "702CO0C031",
+    "course": "Data Extraction and Processing",
+    "semester": "",
+    "lecture_hrs": 1,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Semester_3_3Vr682Ordh.pdf"
+  },
+  {
+    "code": "702CO0E003",
+    "course": "Operations Research",
+    "semester": "",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_5_ZyXwFbEVIr.pdf"
+  },
+  {
+    "code": "702CO1E001",
+    "course": "Machine Learning",
+    "semester": "",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_6_qFNEMDdMzv.pdf"
+  },
+  {
+    "code": "702TG0C001",
+    "course": "Principles of Economics and Management",
+    "semester": "",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Semester_-_6_6P6IvJ0Qla.pdf"
+  },
+  {
+    "code": "702TM0I003",
+    "course": "Technology and Innovation for Marketing",
+    "semester": "",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "704IT0C001",
+    "course": "Multimedia and Animation",
+    "semester": "",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_-_4_4h13uAILlF.pdf"
+  },
+  {
+    "code": "MBOECHS001",
+    "course": "Sustainable Energy Technologies",
+    "semester": "",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "702DB0I003",
+    "course": "Algorithmic Trading",
+    "semester": ": V / VI",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "701BS0C006",
+    "course": "Chemistry-I",
+    "semester": "I",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_-_1_MS9CHxbnM9.pdf"
+  },
+  {
+    "code": "701ME0C003",
+    "course": "Engineering Drawing",
+    "semester": "I",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_-_1_MS9CHxbnM9.pdf"
+  },
+  {
+    "code": "702BS0C002",
+    "course": "Physics",
+    "semester": "I",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "702C0C007",
+    "course": "Fundamentals of Computer Science",
+    "semester": "I",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 1,
+    "total_hours": 75,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "702ME0C001",
+    "course": "Engineering Graphics and Design",
+    "semester": "I",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "701BS0C017",
+    "course": "Chemistry-II",
+    "semester": "I / II",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_-_3_m7Hsi8HVR5.pdf"
+  },
+  {
+    "code": "702BS0C047",
+    "course": "Discrete Mathematics",
+    "semester": "I / II",
+    "lecture_hrs": 2,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 45,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "702EX0C021",
+    "course": "Electrical and Electronics Workshop",
+    "semester": "I / II",
+    "lecture_hrs": 0,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "702BS0C021",
+    "course": "Probability and Random Variables",
+    "semester": "I / II /VI",
+    "lecture_hrs": 2,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 45,
+    "source": "Semester_2_d6PjVw9NFG.pdf"
+  },
+  {
+    "code": "702EX0C003",
+    "course": "Principles of Electrical Engineering",
+    "semester": "I / II /VI",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "701CO0C011",
+    "course": "Computer Hardware and Maintenance",
+    "semester": "I / II/III/IV",
+    "lecture_hrs": 0,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_-_3_evHnqEFgSj.pdf"
+  },
+  {
+    "code": "702BS0C001",
+    "course": "Calculus",
+    "semester": "I / II/III/IV",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 60,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "702CI0C014",
+    "course": "Environmental Science",
+    "semester": "I / II/III/IV",
+    "lecture_hrs": 1,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 30,
+    "source": "Semester_-_4_APO5655NdV.pdf"
+  },
+  {
+    "code": "702EX0C001",
+    "course": "Basic Electrical and Electronics Engineering",
+    "semester": "I / II/III/IV",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_2_d6PjVw9NFG.pdf"
+  },
+  {
+    "code": "702CI0C001",
+    "course": "Engineering Workshop",
+    "semester": "I /II / V/ VI",
+    "lecture_hrs": 0,
+    "practical_hrs": 4,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "702BS0C025",
+    "course": "Business Communication and Value Science-I",
+    "semester": "I /V",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "702BS0C007",
+    "course": "Critical Thinking",
+    "semester": "I/ II /V / VI",
+    "lecture_hrs": 2,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "701IT0C002",
+    "course": "Introduction to Linux",
+    "semester": "I/ II/ IV/ V/VI/ VII/ VIII",
+    "lecture_hrs": 1,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Semester_-_4_APO5655NdV.pdf"
+  },
+  {
+    "code": "702BS0C059",
+    "course": "English Communication",
+    "semester": "I/ II/ IV/ V/VI/ VII/ VIII",
+    "lecture_hrs": 0,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "702BS0C011",
+    "course": "Design Thinking",
+    "semester": "I/II",
+    "lecture_hrs": 2,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "702BS0C024",
+    "course": "Physics for Computing Science",
+    "semester": "I/II",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "701BS0C007",
+    "course": "Preparatory Course in English",
+    "semester": "II",
+    "lecture_hrs": 1,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Semester_-_1_MS9CHxbnM9.pdf"
+  },
+  {
+    "code": "701CO0C002",
+    "course": "Introduction to IT Systems",
+    "semester": "II",
+    "lecture_hrs": 1,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Semester_-_2_eXtMR025k6.pdf"
+  },
+  {
+    "code": "701EX0C002",
+    "course": "Introduction to Electrical and",
+    "semester": "II",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_-_2_eXtMR025k6.pdf"
+  },
+  {
+    "code": "701ME0C010",
+    "course": "Fundamentals of Mechanics-Statics",
+    "semester": "II",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_-_2_eXtMR025k6.pdf"
+  },
+  {
+    "code": "702AI0C004",
+    "course": "Python Programming",
+    "semester": "II",
+    "lecture_hrs": 0,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_2_d6PjVw9NFG.pdf"
+  },
+  {
+    "code": "702DB0C011",
+    "course": "Python for Data Analysis",
+    "semester": "II",
+    "lecture_hrs": 1,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Semester_2_d6PjVw9NFG.pdf"
+  },
+  {
+    "code": "702EX0C014",
+    "course": "Digital Logic Design",
+    "semester": "II",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_3_3Vr682Ordh.pdf"
+  },
+  {
+    "code": "701BS0C015",
+    "course": "Mathematics-III",
+    "semester": "III",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 60,
+    "source": "Semester_-_3_evHnqEFgSj.pdf"
+  },
+  {
+    "code": "701BS0C016",
+    "course": "Physics-III",
+    "semester": "III",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_-_3_evHnqEFgSj.pdf"
+  },
+  {
+    "code": "701CO0C012",
+    "course": "C Programming",
+    "semester": "III",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 1,
+    "total_hours": 75,
+    "source": "Semester_-_3_evHnqEFgSj.pdf"
+  },
+  {
+    "code": "701EX0C001",
+    "course": "Basic Electronics",
+    "semester": "III",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_-_3_evHnqEFgSj.pdf"
+  },
+  {
+    "code": "702CO1C001",
+    "course": "Data Structures and Algorithms",
+    "semester": "III /III /VII",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_3_3Vr682Ordh.pdf"
+  },
+  {
+    "code": "702MEOC016",
+    "course": "Digital Manufacturing Laboratory",
+    "semester": "III /IV/V / VII",
+    "lecture_hrs": 0,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_1_XYGpPo8lj1.pdf"
+  },
+  {
+    "code": "701CO0C007",
+    "course": "Basics of Python",
+    "semester": "III, IV",
+    "lecture_hrs": 0,
+    "practical_hrs": 4,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_-_4_4h13uAILlF.pdf"
+  },
+  {
+    "code": "702CO0C001",
+    "course": "Programming for Problem Solving",
+    "semester": "III, IV",
+    "lecture_hrs": 2,
+    "practical_hrs": 4,
+    "tutorial_hrs": 0,
+    "total_hours": 90,
+    "source": "Semester_-_3_m7Hsi8HVR5.pdf"
+  },
+  {
+    "code": "702EX0E004",
+    "course": "Image and Video Processing",
+    "semester": "III/ IV/ V/ IX",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_5_ZyXwFbEVIr.pdf"
+  },
+  {
+    "code": "704BS0C003",
+    "course": "Chemistry-II",
+    "semester": "IV",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_-_4_4h13uAILlF.pdf"
+  },
+  {
+    "code": "702CO0C038",
+    "course": "Object Oriented Programming through JAVA",
+    "semester": "IV /VIII",
+    "lecture_hrs": 0,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_4_NW34rMDa7d.pdf"
+  },
+  {
+    "code": "702IT0C016",
+    "course": "Software Engineering",
+    "semester": "IV/ V/ VI/ IX",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_5_ZyXwFbEVIr.pdf"
+  },
+  {
+    "code": "702CO0C023",
+    "course": "Computer Organization and Architecture",
+    "semester": "IV/ V/VII /VIII",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Semester_4_NW34rMDa7d.pdf"
+  },
+  {
+    "code": "702CO0C011",
+    "course": "Theoretical Computer Science",
+    "semester": "IV/ VIII",
+    "lecture_hrs": 2,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 45,
+    "source": "Semester_4_NW34rMDa7d.pdf"
+  },
+  {
+    "code": "702CO0C010",
+    "course": "Design and Analysis of Algorithms",
+    "semester": "IV/III/ /VIII",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_4_NW34rMDa7d.pdf"
+  },
+  {
+    "code": "702BS0C057",
+    "course": "Complex Variables and Transforms",
+    "semester": "IV/III/VIII",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 60,
+    "source": "Semester_4_NW34rMDa7d.pdf"
+  },
+  {
+    "code": "702CO0E004",
+    "course": "Advanced Web Programming",
+    "semester": "IV/V/VI/ V-VII/ VIII/",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_5_ZyXwFbEVIr.pdf"
+  },
+  {
+    "code": "701BS0C025",
+    "course": "Critical Thinking",
+    "semester": "V",
+    "lecture_hrs": 2,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_-_5_Ipu4ssdRNg.pdf"
+  },
+  {
+    "code": "701BS0C027",
+    "course": "English Communication",
+    "semester": "V",
+    "lecture_hrs": 0,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_-_5_OcUjTnTDff.pdf"
+  },
+  {
+    "code": "701BS0C028",
+    "course": "Elements of Biology",
+    "semester": "V",
+    "lecture_hrs": 2,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 45,
+    "source": "Semester_-_5_Ipu4ssdRNg.pdf"
+  },
+  {
+    "code": "701CO0C013",
+    "course": "Basic Data Structures",
+    "semester": "V",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_-_5_Ipu4ssdRNg.pdf"
+  },
+  {
+    "code": "701IT0C004",
+    "course": "Introduction to Data Communication and Networks",
+    "semester": "V",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_-_5_OcUjTnTDff.pdf"
+  },
+  {
+    "code": "701IT0C005",
+    "course": "Introduction to IT Infrastructure Landscape",
+    "semester": "V",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_-_5_OcUjTnTDff.pdf"
+  },
+  {
+    "code": "701IT0C006",
+    "course": "Python Fundamentals",
+    "semester": "V",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_-_5_OcUjTnTDff.pdf"
+  },
+  {
+    "code": "701IT0C007",
+    "course": "Introduction to Cloud computing and Blockchain Technology",
+    "semester": "V",
+    "lecture_hrs": 2,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_-_5_OcUjTnTDff.pdf"
+  },
+  {
+    "code": "702TF0C001",
+    "course": "Management Accounting for Engineers",
+    "semester": "V",
+    "lecture_hrs": 2,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_-_5_Ipu4ssdRNg.pdf"
+  },
+  {
+    "code": "701CO0C015",
+    "course": "Event Driven & UI Programming",
+    "semester": "V / VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_-_6_98QKLASN14.pdf"
+  },
+  {
+    "code": "702ME0I005",
+    "course": "Operations and Supply Chain Management",
+    "semester": "V / VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "702MH0I002",
+    "course": "Robotic Process Automation",
+    "semester": "V / VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "702MH0I003",
+    "course": "Elements of Automation",
+    "semester": "V / VI",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "702TF0I001",
+    "course": "Financial Institutions, Markets, Instruments and",
+    "semester": "V / VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "702TF0I002",
+    "course": "Financial Derivatives",
+    "semester": "V / VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "702TG0I001",
+    "course": "Management Through Movies",
+    "semester": "V / VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "702TM0I002",
+    "course": "Creativity and ethics in Marketing",
+    "semester": "V / VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "702TG0I002",
+    "course": "Fundamentals of Digital Transformation",
+    "semester": "V / VI / VII",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "702TG0I003",
+    "course": "Leading Through Life Skills",
+    "semester": "V / VI / VII",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "702CO0C032",
+    "course": "Artificial Intelligence",
+    "semester": "V / VI / VIII",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_5_ZyXwFbEVIr.pdf"
+  },
+  {
+    "code": "702CO1C002",
+    "course": "Operating Systems",
+    "semester": "V /IX",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_5_ZyXwFbEVIr.pdf"
+  },
+  {
+    "code": "701BS0C029",
+    "course": "Calculus",
+    "semester": "V /VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 60,
+    "source": "Semester_-_5_Ipu4ssdRNg.pdf"
+  },
+  {
+    "code": "702AI0E002",
+    "course": "Mobile Application Development",
+    "semester": "V/ IX",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_5_ZyXwFbEVIr.pdf"
+  },
+  {
+    "code": "702DB0I001",
+    "course": "Data Analytics",
+    "semester": "V/ VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "702DB0I002",
+    "course": "Basic Decision making with Spreadsheet",
+    "semester": "V/ VI",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "702MH0I001",
+    "course": "Supervisory Control and Data Acquisition",
+    "semester": "V/ VI",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "701BS0C026",
+    "course": "Design Thinking",
+    "semester": "V/VI",
+    "lecture_hrs": 2,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 30,
+    "source": "Semester_-_5_OcUjTnTDff.pdf"
+  },
+  {
+    "code": "701CO0C014",
+    "course": "Fundamentals of Website Designing",
+    "semester": "V/VI",
+    "lecture_hrs": 2,
+    "practical_hrs": 4,
+    "tutorial_hrs": 0,
+    "total_hours": 90,
+    "source": "Semester_-_5_Ipu4ssdRNg.pdf"
+  },
+  {
+    "code": "702CI0I001",
+    "course": "Fundamentals of Climate Change",
+    "semester": "V/VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "702CI0I002",
+    "course": "Disaster Management",
+    "semester": "V/VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "702CI0I007",
+    "course": "Introduction to GIS",
+    "semester": "V/VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "702CI0I008",
+    "course": "Smart Cities",
+    "semester": "V/VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "702ME0I001",
+    "course": "Renewable Energy Sources",
+    "semester": "V/VI",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "702MH0I004",
+    "course": "Introduction to Virtual Reality and Augmented Reality",
+    "semester": "V/VI",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Open_elective_1_qs6kIDjDA2.pdf"
+  },
+  {
+    "code": "MBOECHE001",
+    "course": "Environment Management",
+    "semester": "V/VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "702CO0C034",
+    "course": "Distributed Computing",
+    "semester": "V/VI/VII VIII/X",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_6_qFNEMDdMzv.pdf"
+  },
+  {
+    "code": "702CI0I005",
+    "course": "Waste Management",
+    "semester": "V/VI/X/XI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "702ME0I003",
+    "course": "Production Management",
+    "semester": "V/VI/X/XI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "702ME0I004",
+    "course": "Elements of Project Management",
+    "semester": "V/VI/X/XI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 45,
+    "source": "Open_elective_2_m9iDoZpvo8.pdf"
+  },
+  {
+    "code": "701CO0C009",
+    "course": "Computer Graphics",
+    "semester": "VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 75,
+    "source": "Semester_-_6_98QKLASN14.pdf"
+  },
+  {
+    "code": "702BS0C051",
+    "course": "Linear Algebra and Differential Equations",
+    "semester": "VI",
+    "lecture_hrs": 3,
+    "practical_hrs": 0,
+    "tutorial_hrs": 1,
+    "total_hours": 60,
+    "source": "Semester_-_6_6P6IvJ0Qla.pdf"
+  },
+  {
+    "code": "702BS0C005",
+    "course": "Professional Ethics",
+    "semester": "VI / VII",
+    "lecture_hrs": 1,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 15,
+    "source": "Semester_-_6_6P6IvJ0Qla.pdf"
+  },
+  {
+    "code": "702IT0E022",
+    "course": "Software Quality Assurance",
+    "semester": "VI / X",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_6_qFNEMDdMzv.pdf"
+  },
+  {
+    "code": "702CO0E007",
+    "course": "Human Computer Interaction",
+    "semester": "VI /X",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_6_qFNEMDdMzv.pdf"
+  },
+  {
+    "code": "702EX0E015",
+    "course": "Computer Vision",
+    "semester": "VI/ V/ VII/IX /X",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_6_qFNEMDdMzv.pdf"
+  },
+  {
+    "code": "702CO1E002",
+    "course": "Business Information Visualization and Analysis",
+    "semester": "VI/ VII/ V /X",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_6_qFNEMDdMzv.pdf"
+  },
+  {
+    "code": "702CO0E009",
+    "course": "Biometrics",
+    "semester": "VI/V/VII / X",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_6_qFNEMDdMzv.pdf"
+  },
+  {
+    "code": "702CO0E010",
+    "course": "Microservices and Architecture",
+    "semester": "VI/X",
+    "lecture_hrs": 2,
+    "practical_hrs": 2,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "Semester_6_qFNEMDdMzv.pdf"
+  },
+  {
+    "code": "USER",
+    "course": "Cyber Security",
+    "semester": "",
+    "lecture_hrs": 0,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "user"
+  },
+  {
+    "code": "USER",
+    "course": "E-Commerce",
+    "semester": "",
+    "lecture_hrs": 0,
+    "practical_hrs": 0,
+    "tutorial_hrs": 0,
+    "total_hours": 60,
+    "source": "user"
+  }
+]

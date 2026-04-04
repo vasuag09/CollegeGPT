@@ -25,9 +25,16 @@ PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 # PDF documents directory — place all PDFs here before running ingestion
 DOCS_DIR = PROJECT_ROOT / "pdfs"
 
+# Course policy PDFs (Semester 1–6, all programs)
+COURSE_POLICY_DIR = PROJECT_ROOT / "Course Policy"
+COURSE_DURATIONS_PATH = DATA_DIR / "course_durations.json"
+
 # PYQ scraper
 PYQ_DIR = DATA_DIR / "pyqs"
 SVKM_PORTAL_URL = "https://portal.svkm.ac.in/usermgmt/login"
+
+# SAP NetWeaver attendance portal
+SAP_PORTAL_URL = os.getenv("SAP_PORTAL_URL", "")
 SVKM_USERNAME = os.getenv("SVKM_USERNAME", "")
 SVKM_PASSWORD = os.getenv("SVKM_PASSWORD", "")
 GOOGLE_DRIVE_FOLDER_NAME = os.getenv("GOOGLE_DRIVE_FOLDER_NAME", "NMIMS PYQs")

@@ -25,6 +25,7 @@ export interface Message {
   isError?: boolean;
   isStreaming?: boolean;
   suggestedFollowUps?: string[];
+  uiAction?: string;
 }
 
 // ── Follow-up suggestions ────────────────────────────────────
@@ -189,6 +190,7 @@ export default function ChatContainer({
               pages?: number[];
               confidence?: number;
               message?: string;
+              action?: string;
             };
 
             try {
@@ -197,7 +199,20 @@ export default function ChatContainer({
               continue;
             }
 
-            if (event.type === "token" && event.content) {
+            if (event.type === "action" && event.action) {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === aiMsgId
+                    ? {
+                        ...msg,
+                        content: event.message || "",
+                        uiAction: event.action,
+                        isStreaming: false,
+                      }
+                    : msg
+                )
+              );
+            } else if (event.type === "token" && event.content) {
               // Append token to the streaming message
               setMessages((prev) =>
                 prev.map((msg) =>
@@ -367,6 +382,7 @@ export default function ChatContainer({
                       : undefined
                   }
                   onSuggestionClick={handlePromptSelect}
+                  uiAction={msg.uiAction}
                 />
               ))}
 
