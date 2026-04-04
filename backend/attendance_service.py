@@ -277,13 +277,32 @@ async def _scrape_logic(sap_id: str, password: str, params: dict, job_type: str)
             raise RuntimeError("Invalid credentials")
 
         # 2. Select Attendance Link
-        link = None
+        # Wait for portal nav to finish rendering (SAP portal uses JS-rendered navigation)
+        try:
+            await page.wait_for_load_state("networkidle", timeout=15000)
+        except PlaywrightTimeout:
+            pass  # proceed anyway if portal never fully settles
+
         selectors = [
             "a:has-text('Attendance Display')",
             "a:has-text('Attendance Display for Students')",
+            "a:has-text('Student Attendance')",
         ]
-        for sel in selectors:
-            link = await page.query_selector(sel)
+        link = None
+        # Search main page first, then all child frames
+        # (SAP portal nav is often rendered inside a portal navigation iframe)
+        all_frames = [page.main_frame] + [
+            f for f in page.frames if f != page.main_frame
+        ]
+        for frame in all_frames:
+            for sel in selectors:
+                try:
+                    el = await frame.query_selector(sel)
+                    if el:
+                        link = el
+                        break
+                except Exception:
+                    pass
             if link:
                 break
 
@@ -340,7 +359,9 @@ async def _wd_sem_labels(frame: Any) -> frozenset:
     return frozenset(items or [])
 
 
-async def _wd_wait_for_sem_change(frame: Any, prev_labels: frozenset, max_iter: int = 40) -> frozenset:
+async def _wd_wait_for_sem_change(
+    frame: Any, prev_labels: frozenset, max_iter: int = 40
+) -> frozenset:
     """Wait until semester listbox shows a different non-empty set of labels."""
     for _ in range(max_iter):
         current = await _wd_sem_labels(frame)
@@ -386,11 +407,15 @@ async def _extract_options(frame: Any) -> dict:
     # 2. Select latest year to trigger Semester AJAX
     latest_year = year_opts[-1]
     await _wd_click(frame, latest_year["id"])
-    logger.info("[options] Selected year id=%s key=%s", latest_year["id"], latest_year["key"])
+    logger.info(
+        "[options] Selected year id=%s key=%s", latest_year["id"], latest_year["key"]
+    )
 
     # Wait for semester labels to actually change (not just a fixed sleep)
     current_labels = await _wd_wait_for_sem_change(frame, prev_labels)
-    logger.info("[options] Semester labels after year select: %s", sorted(current_labels))
+    logger.info(
+        "[options] Semester labels after year select: %s", sorted(current_labels)
+    )
 
     # 3. Read semester options from WD35 container
     sem_opts = await frame.evaluate("""
@@ -453,7 +478,12 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
     """)
     if year_id:
         await _wd_click(frame, year_id)
-        logger.info("[%s] Year key=%s selected (id=%s)", params.get("sap_id","?"), year_target, year_id)
+        logger.info(
+            "[%s] Year key=%s selected (id=%s)",
+            params.get("sap_id", "?"),
+            year_target,
+            year_id,
+        )
     else:
         # Fall back to last item
         fallback_id = await frame.evaluate("""
@@ -462,14 +492,21 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
         """)
         if fallback_id:
             await _wd_click(frame, fallback_id)
-            logger.warning("[%s] Year key=%s not found; selected last year id=%s",
-                           params.get("sap_id","?"), year_target, fallback_id)
+            logger.warning(
+                "[%s] Year key=%s not found; selected last year id=%s",
+                params.get("sap_id", "?"),
+                year_target,
+                fallback_id,
+            )
 
     # Wait for semester listbox to actually change (not just a fixed sleep)
     await _wd_wait_for_sem_change(frame, prev_sem_labels)
     current_sem_labels = await _wd_sem_labels(frame)
-    logger.info("[%s] Semester labels after year select: %s",
-                params.get("sap_id","?"), sorted(current_sem_labels))
+    logger.info(
+        "[%s] Semester labels after year select: %s",
+        params.get("sap_id", "?"),
+        sorted(current_sem_labels),
+    )
 
     # ── 2. Semester via direct ComboBox_Select AJAX ───────────────────────────
     # Semester listbox items are injected into the DOM via AJAX after year selection.
@@ -499,12 +536,21 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
     sem_target = params.get("semester_label") or "Semester VI"
     target_sem = next((s for s in sem_opts if s["label"] == sem_target), None)
     if not target_sem:
-        logger.warning("[%s] Semester %r not found in %s; using last",
-                       params.get("sap_id","?"), sem_target, [s["label"] for s in sem_opts])
+        logger.warning(
+            "[%s] Semester %r not found in %s; using last",
+            params.get("sap_id", "?"),
+            sem_target,
+            [s["label"] for s in sem_opts],
+        )
         target_sem = sem_opts[-1]
 
-    logger.info("[%s] Target semester: label=%r key=%r id=%r",
-                params.get("sap_id","?"), target_sem["label"], target_sem["key"], target_sem["id"])
+    logger.info(
+        "[%s] Target semester: label=%r key=%r id=%r",
+        params.get("sap_id", "?"),
+        target_sem["label"],
+        target_sem["key"],
+        target_sem["id"],
+    )
 
     # Semester combobox = 2nd ct=CB input (year is 1st)
     sem_cb_id = await frame.evaluate("""
@@ -514,7 +560,7 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
             return cbs.length >= 2 ? cbs[1].id : (cbs.length ? cbs[0].id : 'WD33');
         }
     """)
-    logger.info("[%s] Semester combobox id: %s", params.get("sap_id","?"), sem_cb_id)
+    logger.info("[%s] Semester combobox id: %s", params.get("sap_id", "?"), sem_cb_id)
 
     # Capture form params needed for AJAX POST
     form_params = await frame.evaluate("""
@@ -560,18 +606,28 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
                 }
             }
             """,
-            {"semCbId": sem_cb_id, "semKey": sem_key,
-             "secureId": form_params["secureId"],
-             "appName": form_params.get("appName", "ZSVKM_STUDENT_ATTENDANCE2"),
-             "frameUrl": form_params["frameUrl"]},
+            {
+                "semCbId": sem_cb_id,
+                "semKey": sem_key,
+                "secureId": form_params["secureId"],
+                "appName": form_params.get("appName", "ZSVKM_STUDENT_ATTENDANCE2"),
+                "frameUrl": form_params["frameUrl"],
+            },
         )
-        logger.info("[%s] Semester AJAX: ok=%s status=%s len=%s",
-                    params.get("sap_id","?"),
-                    ajax_result.get("ok"), ajax_result.get("status"), ajax_result.get("len"))
+        logger.info(
+            "[%s] Semester AJAX: ok=%s status=%s len=%s",
+            params.get("sap_id", "?"),
+            ajax_result.get("ok"),
+            ajax_result.get("status"),
+            ajax_result.get("len"),
+        )
     else:
         # No data-itemkey: fall back to click
-        logger.warning("[%s] No semKey/secureId for semester — falling back to click id=%s",
-                       params.get("sap_id","?"), target_sem.get("id"))
+        logger.warning(
+            "[%s] No semKey/secureId for semester — falling back to click id=%s",
+            params.get("sap_id", "?"),
+            target_sem.get("id"),
+        )
         if target_sem.get("id"):
             await _wd_click(frame, target_sem["id"])
 
@@ -591,8 +647,11 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
             return boxes.length > 0 ? boxes[boxes.length - 1].id : null;
         }
     """)
-    logger.info("[%s] Report-type combobox trigger: %s",
-                params.get("sap_id","?"), report_trigger_id)
+    logger.info(
+        "[%s] Report-type combobox trigger: %s",
+        params.get("sap_id", "?"),
+        report_trigger_id,
+    )
 
     if not report_trigger_id:
         raise RuntimeError("Report-type combobox not found.")
@@ -609,14 +668,20 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
             return null;
         }
     """)
-    logger.info("[%s] Detail report option found: %s", params.get("sap_id","?"), detail_info)
+    logger.info(
+        "[%s] Detail report option found: %s", params.get("sap_id", "?"), detail_info
+    )
 
     if not detail_info or not detail_info.get("id"):
         raise RuntimeError("Detail report option not found in report-type dropdown.")
 
     await _wd_click(frame, detail_info["id"])
-    logger.info("[%s] Detail report clicked (id=%s text=%r)",
-                params.get("sap_id","?"), detail_info["id"], detail_info.get("text"))
+    logger.info(
+        "[%s] Detail report clicked (id=%s text=%r)",
+        params.get("sap_id", "?"),
+        detail_info["id"],
+        detail_info.get("text"),
+    )
 
     # Wait 2s for AJAX to settle, then poll up to 15s for date inputs to appear
     await asyncio.sleep(2.0)
@@ -638,8 +703,12 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
             }
         """)
         if len(date_input_ids) >= 2:
-            logger.info("[%s] Date inputs found on poll %d: %s",
-                        params.get("sap_id","?"), _poll + 1, date_input_ids[:2])
+            logger.info(
+                "[%s] Date inputs found on poll %d: %s",
+                params.get("sap_id", "?"),
+                _poll + 1,
+                date_input_ids[:2],
+            )
             break
         await asyncio.sleep(0.5)
 
@@ -649,12 +718,18 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
             .filter(el => el.id && el.id.startsWith('WD') && el.type !== 'hidden')
             .map(el => ({id: el.id, ct: el.getAttribute('ct'), visible: el.offsetParent !== null}))
     """)
-    logger.info("[%s] WD inputs after Detail selection: %s", params.get("sap_id","?"), input_diag)
+    logger.info(
+        "[%s] WD inputs after Detail selection: %s",
+        params.get("sap_id", "?"),
+        input_diag,
+    )
 
     has_dates = len(date_input_ids) >= 2
     if not has_dates:
-        logger.warning("[%s] Date fields did not appear after 15s — Path B: submit without dates",
-                       params.get("sap_id","?"))
+        logger.warning(
+            "[%s] Date fields did not appear after 15s — Path B: submit without dates",
+            params.get("sap_id", "?"),
+        )
     else:
         start_v = params.get("start_date") or "01.06.2025"
         end_v = params.get("end_date") or datetime.now(_IST).strftime("%d.%m.%Y")
@@ -671,8 +746,14 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
                 }""",
                 iid,
             )
-        logger.info("[%s] Dates filled: %s → %s (fields: %s, %s)",
-                    params.get("sap_id","?"), start_v, end_v, date_input_ids[0], date_input_ids[1])
+        logger.info(
+            "[%s] Dates filled: %s → %s (fields: %s, %s)",
+            params.get("sap_id", "?"),
+            start_v,
+            end_v,
+            date_input_ids[0],
+            date_input_ids[1],
+        )
         await asyncio.sleep(0.5)
 
     # ── 5. Submit ─────────────────────────────────────────────────────────────
@@ -689,7 +770,7 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
             return null;
         }
     """)
-    logger.info("[%s] Submit button id=%s", params.get("sap_id","?"), submit_id)
+    logger.info("[%s] Submit button id=%s", params.get("sap_id", "?"), submit_id)
     if not submit_id:
         raise RuntimeError("Submit button not found (WD46/WD51/WD52).")
 
@@ -710,13 +791,18 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
             body = await direct_resp.body()
             if body[:4] == b"%PDF":
                 pdf_from_response = body
-                logger.info("[%s] Path A: captured PDF directly from submit response (%d bytes)",
-                            params.get("sap_id","?"), len(body))
+                logger.info(
+                    "[%s] Path A: captured PDF directly from submit response (%d bytes)",
+                    params.get("sap_id", "?"),
+                    len(body),
+                )
     except PlaywrightTimeout:
         # No direct-download response — submit click already fired in expect_response context;
         # no need to click again
-        logger.info("[%s] No direct PDF response from submit — proceeding to DOM poll",
-                    params.get("sap_id","?"))
+        logger.info(
+            "[%s] No direct PDF response from submit — proceeding to DOM poll",
+            params.get("sap_id", "?"),
+        )
 
     if pdf_from_response is not None:
         return _enrich_with_course_hours(
@@ -735,8 +821,12 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
             }
         """)
         if obj_url:
-            logger.info("[%s] Path B: PDF object found in DOM (poll %d): %s",
-                        params.get("sap_id","?"), _i + 1, obj_url[:100])
+            logger.info(
+                "[%s] Path B: PDF object found in DOM (poll %d): %s",
+                params.get("sap_id", "?"),
+                _i + 1,
+                obj_url[:100],
+            )
             break
         await asyncio.sleep(0.5)
 
@@ -746,13 +836,22 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
             frame_resp = await page.context.request.get(frame.url, timeout=15000)
             if frame_resp.ok:
                 html_body = await frame_resp.text()
-                m = re.search(r'(?:data|src)=["\']([^"\']+\.pdf[^"\']*)["\']', html_body, re.I)
+                m = re.search(
+                    r'(?:data|src)=["\']([^"\']+\.pdf[^"\']*)["\']', html_body, re.I
+                )
                 if m:
                     obj_url = m.group(1)
-                    logger.info("[%s] Path C: PDF URL found in frame HTML: %s",
-                                params.get("sap_id","?"), obj_url[:100])
+                    logger.info(
+                        "[%s] Path C: PDF URL found in frame HTML: %s",
+                        params.get("sap_id", "?"),
+                        obj_url[:100],
+                    )
         except Exception as exc:
-            logger.warning("[%s] Path C frame HTML fetch failed: %s", params.get("sap_id","?"), exc)
+            logger.warning(
+                "[%s] Path C frame HTML fetch failed: %s",
+                params.get("sap_id", "?"),
+                exc,
+            )
 
     if not obj_url:
         err_msg = await frame.evaluate("""
@@ -767,8 +866,12 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
                 .filter(el => el.id && el.id.startsWith('WD') && el.type !== 'hidden')
                 .map(el => el.id)
         """)
-        logger.error("[%s] PDF not found. SAP message: %r. WD inputs: %s",
-                     params.get("sap_id","?"), err_msg, diag_inputs)
+        logger.error(
+            "[%s] PDF not found. SAP message: %r. WD inputs: %s",
+            params.get("sap_id", "?"),
+            err_msg,
+            diag_inputs,
+        )
         raise RuntimeError(f"PDF failed: {err_msg or 'Report generation timeout.'}")
 
     if not obj_url.startswith("http"):
@@ -789,15 +892,28 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
                 body = await resp.body()
                 if body[:4] == b"%PDF":
                     pdf_bytes = body
-                    logger.info("[%s] PDF fetched via context.request (%d bytes) attempt %d",
-                                params.get("sap_id","?"), len(body), attempt + 1)
+                    logger.info(
+                        "[%s] PDF fetched via context.request (%d bytes) attempt %d",
+                        params.get("sap_id", "?"),
+                        len(body),
+                        attempt + 1,
+                    )
                     break
         except PlaywrightTimeout:
             last_status = "timeout"
-            logger.warning("[%s] PDF request timeout attempt %d", params.get("sap_id","?"), attempt + 1)
+            logger.warning(
+                "[%s] PDF request timeout attempt %d",
+                params.get("sap_id", "?"),
+                attempt + 1,
+            )
         except Exception as exc:
             last_status = f"error:{type(exc).__name__}"
-            logger.warning("[%s] PDF request failed attempt %d: %s", params.get("sap_id","?"), attempt + 1, exc)
+            logger.warning(
+                "[%s] PDF request failed attempt %d: %s",
+                params.get("sap_id", "?"),
+                attempt + 1,
+                exc,
+            )
 
         await asyncio.sleep(1.0)
         # Check if object URL updated after server-side render
@@ -810,9 +926,13 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
             }
         """)
         if refreshed:
-            new_url = refreshed if refreshed.startswith("http") else urljoin(frame.url, refreshed)
+            new_url = (
+                refreshed
+                if refreshed.startswith("http")
+                else urljoin(frame.url, refreshed)
+            )
             if new_url != obj_url:
-                logger.info("[%s] PDF object URL refreshed", params.get("sap_id","?"))
+                logger.info("[%s] PDF object URL refreshed", params.get("sap_id", "?"))
                 obj_url = new_url
 
     if not pdf_bytes:
@@ -845,19 +965,29 @@ async def _extract_attendance_pdf(page: Any, frame: Any, params: dict) -> list[d
             candidate = base64.b64decode(fetch_result["b64"])
             if candidate[:4] == b"%PDF":
                 pdf_bytes = candidate
-                logger.info("[%s] PDF fetched via frame JS fetch (%d bytes)",
-                            params.get("sap_id","?"), len(candidate))
+                logger.info(
+                    "[%s] PDF fetched via frame JS fetch (%d bytes)",
+                    params.get("sap_id", "?"),
+                    len(candidate),
+                )
             else:
-                logger.warning("[%s] Frame JS fetch: not a PDF (ct=%s)",
-                               params.get("sap_id","?"), fetch_result.get("ct"))
+                logger.warning(
+                    "[%s] Frame JS fetch: not a PDF (ct=%s)",
+                    params.get("sap_id", "?"),
+                    fetch_result.get("ct"),
+                )
         else:
-            logger.warning("[%s] Frame JS fetch failed: status=%s error=%s",
-                           params.get("sap_id","?"),
-                           (fetch_result or {}).get("status"),
-                           (fetch_result or {}).get("error"))
+            logger.warning(
+                "[%s] Frame JS fetch failed: status=%s error=%s",
+                params.get("sap_id", "?"),
+                (fetch_result or {}).get("status"),
+                (fetch_result or {}).get("error"),
+            )
 
     if not pdf_bytes:
-        raise RuntimeError(f"PDF download failed (last_status={last_status or 'unknown'})")
+        raise RuntimeError(
+            f"PDF download failed (last_status={last_status or 'unknown'})"
+        )
 
     merged = _merge_theory_practical_rows(_parse_pdf_attendance(pdf_bytes))
     return _enrich_with_course_hours(merged)
@@ -1065,6 +1195,7 @@ def _load_course_durations() -> dict[str, dict]:
     try:
         if SUPABASE_URL and SUPABASE_KEY:
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 custom_rows = pool.submit(_fetch_supabase_overrides).result(timeout=6)
             for row in custom_rows:
@@ -1268,4 +1399,7 @@ async def poll_status(sap_id: str):
     # cache deletion and new job enqueue), treat it as processing rather than expired.
     if active_key:
         return {"status": "processing"}
-    return {"status": "error", "error": "No active job found. Please submit a new request."}
+    return {
+        "status": "error",
+        "error": "No active job found. Please submit a new request.",
+    }
