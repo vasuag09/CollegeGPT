@@ -356,23 +356,36 @@ async def admin_stats(x_admin_password: str = Header(default="")):
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
+            # Fetch 7-day rows for analytics
             resp = await client.get(url, headers=headers, params=params)
-        resp.raise_for_status()
-        rows = resp.json()
+            resp.raise_for_status()
+            rows = resp.json()
+
+            # Fetch all-time count via Supabase HEAD request
+            count_resp = await client.get(
+                url,
+                headers={**headers, "Prefer": "count=exact"},
+                params={"select": "id"},
+            )
+            count_resp.raise_for_status()
+            content_range = count_resp.headers.get("content-range", "")
+            # content-range format: "0-N/TOTAL"
+            try:
+                all_time_count = int(content_range.split("/")[-1])
+            except (ValueError, IndexError):
+                all_time_count = len(rows)
     except Exception as e:
         logger.error("Supabase fetch failed: %s", e)
         raise HTTPException(status_code=502, detail="Failed to fetch logs from Supabase")
 
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    week_start = now - timedelta(days=7)
 
-    total_all = len(rows)
     total_today = sum(
         1 for r in rows
         if datetime.fromisoformat(r["created_at"].replace("Z", "+00:00")) >= today_start
     )
-    total_week = total_all  # rows are already limited to 7 days
+    total_week = len(rows)  # rows are already limited to 7 days
 
     # Answer type breakdown
     type_counts: Counter = Counter(r.get("answer_type", "rag") for r in rows)
@@ -411,7 +424,7 @@ async def admin_stats(x_admin_password: str = Header(default="")):
         "totals": {
             "today": total_today,
             "week": total_week,
-            "all_time": total_all,
+            "all_time": all_time_count,
         },
         "answer_types": dict(type_counts),
         "avg_confidence": avg_confidence,
