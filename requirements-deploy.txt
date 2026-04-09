@@ -9,6 +9,7 @@ slowapi==0.1.9
 
 # LLM & Embeddings
 langchain-text-splitters==0.3.4
+google-generativeai==0.8.4
 google-genai>=1.10.0
 
 # Vector Database
