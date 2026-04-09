@@ -159,17 +159,19 @@ async def health_check():
 @app.get("/debug/embedding-test")
 async def debug_embedding_test():
     """Temporary: test embedding API connectivity from this server."""
-    import google.generativeai as genai
+    from google import genai as genai_new
+    from google.genai import types as genai_types
     from backend.config import EMBEDDING_MODEL
     key = GOOGLE_API_KEY
-    genai.configure(api_key=key, transport='rest')
     try:
-        result = genai.embed_content(
+        client = genai_new.Client(api_key=key)
+        result = client.models.embed_content(
             model=EMBEDDING_MODEL,
-            content="hello",
-            task_type="retrieval_query"
+            contents="hello",
+            config=genai_types.EmbedContentConfig(task_type="RETRIEVAL_QUERY"),
         )
-        return {"status": "ok", "dim": len(result['embedding']), "key_prefix": key[:10]}
+        dim = len(result.embeddings[0].values)
+        return {"status": "ok", "dim": dim, "key_prefix": key[:10]}
     except Exception as e:
         return {"status": "error", "error": str(e), "key_prefix": key[:10] if key else "EMPTY"}
 
