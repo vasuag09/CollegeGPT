@@ -1,21 +1,20 @@
 """
 NM-GPT – LLM Client
 
-Wraps the Google Generative AI chat model for answer generation.
-Uses LangChain's ChatGoogleGenerativeAI for consistency with the
-rest of the pipeline.
+Wraps the Google Gen AI model for answer generation.
+Uses the google-genai SDK (v1 API endpoint) to avoid v1beta geographic restrictions.
 
-Provides both synchronous (generate) and streaming (generate_stream)
-interfaces.
+Provides both synchronous (generate) and streaming (generate_stream) interfaces.
 """
 
 import logging
 import time
 from collections.abc import Generator
 
-from backend.config import GOOGLE_API_KEY, LLM_MODEL, LLM_TEMPERATURE, LLM_TIMEOUT_SECONDS
+from google import genai
+from google.genai import types
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from backend.config import GOOGLE_API_KEY, LLM_MODEL, LLM_TEMPERATURE, LLM_TIMEOUT_SECONDS
 
 logger = logging.getLogger("nmgpt.llm")
 
@@ -26,21 +25,32 @@ _RATE_LIMIT_MESSAGE = (
 # How long to wait before each retry (seconds)
 _RETRY_DELAYS = [2, 5]
 
+_client: genai.Client | None = None
 
-def get_llm() -> ChatGoogleGenerativeAI:
-    """Return a configured LLM instance."""
-    if not GOOGLE_API_KEY:
-        raise ValueError(
-            "GOOGLE_API_KEY is not set. "
-            "Create a .env file with your key (see .env.example)."
-        )
-    return ChatGoogleGenerativeAI(
-        model=LLM_MODEL,
-        google_api_key=GOOGLE_API_KEY,
-        temperature=LLM_TEMPERATURE,
-        transport="rest",
-        timeout=LLM_TIMEOUT_SECONDS,
-    )
+
+def get_client() -> genai.Client:
+    """Return a configured Gen AI client (singleton)."""
+    global _client
+    if _client is None:
+        if not GOOGLE_API_KEY:
+            raise ValueError(
+                "GOOGLE_API_KEY is not set. "
+                "Create a .env file with your key (see .env.example)."
+            )
+        _client = genai.Client(api_key=GOOGLE_API_KEY)
+    return _client
+
+
+def _extract_text(response: types.GenerateContentResponse) -> str:
+    """Extract plain text from a GenerateContentResponse, skipping thinking parts."""
+    parts = []
+    for candidate in response.candidates or []:
+        for part in candidate.content.parts or []:
+            if hasattr(part, "thought") and part.thought:
+                continue
+            if part.text:
+                parts.append(part.text)
+    return "".join(parts)
 
 
 def _is_rate_limit(exc: Exception) -> bool:
@@ -51,22 +61,23 @@ def _is_rate_limit(exc: Exception) -> bool:
 def generate(prompt: str) -> str:
     """Send a prompt to the LLM and return the text response."""
     logger.info("Invoking LLM (model=%s, timeout=%ds)", LLM_MODEL, LLM_TIMEOUT_SECONDS)
-    llm = get_llm()
+    client = get_client()
+    config = types.GenerateContentConfig(
+        temperature=LLM_TEMPERATURE,
+        http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+    )
     last_exc: Exception | None = None
     for attempt, delay in enumerate([0] + _RETRY_DELAYS):
         if delay:
             logger.warning("Rate limit hit, retrying in %ds (attempt %d)", delay, attempt + 1)
             time.sleep(delay)
         try:
-            response = llm.invoke(prompt)
-            content = response.content
-            if isinstance(content, list):
-                return "".join(
-                    part.get("text", "") if isinstance(part, dict) else str(part)
-                    for part in content
-                    if not (isinstance(part, dict) and part.get("type") == "thinking")
-                )
-            return str(content)
+            response = client.models.generate_content(
+                model=LLM_MODEL,
+                contents=prompt,
+                config=config,
+            )
+            return _extract_text(response)
         except Exception as exc:
             last_exc = exc
             if _is_rate_limit(exc):
@@ -79,27 +90,25 @@ def generate(prompt: str) -> str:
 def generate_stream(prompt: str) -> Generator[str, None, None]:
     """Stream tokens from the LLM, yielding each chunk as it arrives."""
     logger.info("Streaming LLM (model=%s, timeout=%ds)", LLM_MODEL, LLM_TIMEOUT_SECONDS)
-    llm = get_llm()
+    client = get_client()
+    config = types.GenerateContentConfig(
+        temperature=LLM_TEMPERATURE,
+        http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+    )
     last_exc: Exception | None = None
     for attempt, delay in enumerate([0] + _RETRY_DELAYS):
         if delay:
             logger.warning("Rate limit hit, retrying stream in %ds (attempt %d)", delay, attempt + 1)
             time.sleep(delay)
         try:
-            for chunk in llm.stream(prompt):
-                content = chunk.content
-                if not content:
-                    continue
-                if isinstance(content, list):
-                    text = "".join(
-                        part.get("text", "") if isinstance(part, dict) else str(part)
-                        for part in content
-                        if not (isinstance(part, dict) and part.get("type") == "thinking")
-                    )
-                    if text:
-                        yield text
-                else:
-                    yield str(content)
+            for chunk in client.models.generate_content_stream(
+                model=LLM_MODEL,
+                contents=prompt,
+                config=config,
+            ):
+                text = _extract_text(chunk)
+                if text:
+                    yield text
             return  # success
         except Exception as exc:
             last_exc = exc
