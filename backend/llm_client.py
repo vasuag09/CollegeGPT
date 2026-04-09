@@ -37,7 +37,10 @@ def get_client() -> genai.Client:
                 "GOOGLE_API_KEY is not set. "
                 "Create a .env file with your key (see .env.example)."
             )
-        _client = genai.Client(api_key=GOOGLE_API_KEY)
+        _client = genai.Client(
+            api_key=GOOGLE_API_KEY,
+            http_options=types.HttpOptions(api_version="v1"),
+        )
     return _client
 
 
