@@ -156,6 +156,24 @@ async def health_check():
     return {"status": "healthy", "service": "NM-GPT"}
 
 
+@app.get("/debug/embedding-test")
+async def debug_embedding_test():
+    """Temporary: test embedding API connectivity from this server."""
+    import google.generativeai as genai
+    from backend.config import EMBEDDING_MODEL
+    key = GOOGLE_API_KEY
+    genai.configure(api_key=key, transport='rest')
+    try:
+        result = genai.embed_content(
+            model=EMBEDDING_MODEL,
+            content="hello",
+            task_type="retrieval_query"
+        )
+        return {"status": "ok", "dim": len(result['embedding']), "key_prefix": key[:10]}
+    except Exception as e:
+        return {"status": "error", "error": str(e), "key_prefix": key[:10] if key else "EMPTY"}
+
+
 def _answer_type(result: dict) -> str:
     """Classify a query result for analytics."""
     answer = result.get("answer", "")
