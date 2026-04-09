@@ -60,7 +60,7 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 
 # ── Model Settings ───────────────────────────────────────────
-EMBEDDING_MODEL = "models/gemini-embedding-001"
+EMBEDDING_MODEL = "models/gemini-embedding-2-preview"
 LLM_MODEL = "gemini-2.5-flash"
 LLM_TEMPERATURE = 0.2
 
